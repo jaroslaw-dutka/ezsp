@@ -5,51 +5,52 @@ namespace XiaomiGateway3;
 public class AshControl
 {
     public AshFrameType Type { get; set; }
-    public int AckNumber { get; set; }
-    public int FrameNumber { get; set; }
-    // public bool Reserved { get; set; }
-    public bool NotReady { get; set; }
-    public bool Retransmission { get; set; }
-
-
-    public AshControl()
+    public byte FrameNumber { get; set; }        // Data
+    public bool Retransmission { get; set; }    // Data
+    public byte AckNumber { get; set; }          // Data, Ack, Nak
+    public bool Reserved { get; set; }          // Ack, Nak
+    public bool NotReady { get; set; }          // Ack, Nak
+    
+    public static AshControl Parse(byte b)
     {
-        
-    }
-
-    public AshControl(byte b)
-    {
+        var ctrl = new AshControl();
         if (b == 0xC2)
         {
-            Type = AshFrameType.Error;
+            ctrl.Type = AshFrameType.Error;
         } 
         else if (b == 0xC1)
         {
-            Type = AshFrameType.Rstack;
+            ctrl.Type = AshFrameType.Rstack;
         }
         else if (b == 0xC0)
         {
-            Type = AshFrameType.Rst;
+            ctrl.Type = AshFrameType.Rst;
         }
         else
         {
-            AckNumber = b & 0x03;
+            ctrl.AckNumber = (byte)(b & 0x03);
 
             if ((b & 0x80) == 0)
             {
-                Type = AshFrameType.Data;
-                Retransmission = ((b >> 3) & 0x01) == 0x01;
-                FrameNumber = (b >> 4) & 0x03;
+                ctrl.Type = AshFrameType.Data;
+                ctrl.Retransmission = ((b >> 3) & 0x01) == 0x01;
+                ctrl.FrameNumber = (byte)((b >> 4) & 0x03);
             }
             else
             {
-                Type = ((b >> 5) & 0x01) == 0x01
+                ctrl.Type = ((b >> 5) & 0x01) == 0x01
                     ? AshFrameType.Nak 
                     : AshFrameType.Ack;
-                NotReady = ((b >> 3) & 0x01) == 0x01;
-                // Reserved = ((b >> 4) & 0x01) == 0x01;
+                ctrl.NotReady = ((b >> 3) & 0x01) == 0x01;
+                ctrl.Reserved = ((b >> 4) & 0x01) == 0x01;
             }
         }
+        return ctrl;
+    }
+
+    public byte GetByte()
+    {
+        return 0;
     }
 
     public override string ToString()
@@ -72,10 +73,5 @@ public class AshControl
         }
 
         return sb.ToString();
-    }
-
-    public byte ToByte()
-    {
-        return 0;
     }
 }

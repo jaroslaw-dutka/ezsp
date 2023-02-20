@@ -1,8 +1,12 @@
 ﻿public class Crc16
 {
-    public static byte[] CalcCcittFalse(byte[] data)
+    public static ushort CcittFalse(Span<byte> data)
     {
-        ushort crc = 0xFFFF;
+        return CcittFalse(0xFFFF, data);
+    }
+
+    public static ushort CcittFalse(ushort crc, Span<byte> data)
+    {
         for (int i = 0; i < data.Length; i++)
         {
             crc ^= (ushort)(data[i] << 8);
@@ -14,6 +18,6 @@
                     crc <<= 1;
             }
         }
-        return BitConverter.GetBytes(crc);
+        return crc;
     }
 }
