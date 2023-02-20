@@ -1,4 +1,4 @@
-﻿namespace XiaomiGateway3;
+﻿namespace XiaomiGateway3.Ash;
 
 public enum AshFrameType
 {

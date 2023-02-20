@@ -1,10 +1,10 @@
-﻿namespace XiaomiGateway3;
+﻿namespace XiaomiGateway3.Ash;
 
-public static class PseudoRandom
+public static class AshRandom
 {
     private static readonly byte[] Random;
 
-    static PseudoRandom()
+    static AshRandom()
     {
         var size = 256;
         Random = new byte[size];
@@ -17,9 +17,17 @@ public static class PseudoRandom
         }
     }
 
+    public static byte[] Replace(Span<byte> data)
+    {
+        var newData = new byte[data.Length];
+        data.CopyTo(newData);
+        ReplaceInplace(newData);
+        return newData;
+    }
+
     public static void ReplaceInplace(Span<byte> data)
     {
-        for (var i = 0; i < data.Length; i++) 
+        for (var i = 0; i < data.Length; i++)
             data[i] = (byte)(data[i] ^ Random[i]);
     }
 }

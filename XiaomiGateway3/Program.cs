@@ -1,32 +1,41 @@
 ﻿using System.Net.Sockets;
-using XiaomiGateway3;
+using XiaomiGateway3.Ash;
 
 var tcp = new TcpClient();
 tcp.Connect("192.168.1.40", 8888);
 using var stream = tcp.GetStream();
 var ash = new AshClient(stream);
 
-ash.WriteReset();
-
+ash.Reset();
+ash.Write(new AshFrame
 {
-    var frame = ash.Read();
-    ash.WriteAck(frame.Control.AckNumber);
-    Console.WriteLine(frame.ToString());
-}
+    Control = new AshControl { Type = AshFrameType.Rst }
+});
 
-var data = new byte[] { 0, 0, 0, 4 };
-PseudoRandom.ReplaceInplace(data);
-ash.WriteData(data);
+HandleResponse();
+
+ash.Write(new AshFrame
+{
+    Control = new AshControl { Type = AshFrameType.Data },
+    Data = new byte[] { 0, 0, 0, 4 }
+});
 
 while (true)
+{
+    HandleResponse();
+}
+
+void HandleResponse()
 {
     var frame = ash.Read();
     if (frame.Control.Type == AshFrameType.Data)
     {
-        ash.WriteAck(frame.Control.AckNumber);
+        var ackRequest = new AshFrame
+        {
+            Control = new AshControl { Type = AshFrameType.Ack, AckNumber = frame.Control.AckNumber }
+        };
+        ash.Write(ackRequest);
     }
-
-    PseudoRandom.ReplaceInplace(frame.Data);
 
     Console.WriteLine(frame.ToString());
 }
