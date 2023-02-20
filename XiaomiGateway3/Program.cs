@@ -1,4 +1,5 @@
 ﻿using System.Net.Sockets;
+using XiaomiGateway3;
 
 var client = new TcpClient();
 client.Connect("192.168.1.40", 8888);
@@ -20,15 +21,25 @@ var writer = new BinaryWriter(stream);
 //     }
 // }
 
-// writer.Write(new byte[]
-// {
-//     0x1A,0xC0,0x38,0xBC,0x7E
-// });
-
 var ashReader = new AshReader(reader);
+
+writer.Write(new byte[]
+{
+    0x1A,0xC0,0x38,0xBC,0x7E
+});
 
 while (true)
 {
     var frame = ashReader.Read();
     Console.WriteLine(frame.ToString());
+
+    if (frame.Control.Type == AshFrameType.Data)
+    {
+        var ack = (byte)(frame.Control.AckNumber | 0x80);
+        var crc = Crc16.CalcCcittFalse(new[] { ack });
+        writer.Write(new byte[]
+        {
+            ack, crc[1], crc[0], 0x7E
+        });
+    }
 }

@@ -1,4 +1,6 @@
-﻿public class EzspFrame
+﻿namespace XiaomiGateway3;
+
+public class EzspFrame
 {
     public byte Sequence { get; set; }
     public ushort Control { get; set; }

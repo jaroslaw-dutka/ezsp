@@ -1,5 +1,7 @@
 ﻿using System.Text;
 
+namespace XiaomiGateway3;
+
 public class AshFrame {
     public AshControl Control { get; set; }
     public byte[] Data { get; set; }

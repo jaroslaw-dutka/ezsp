@@ -1,4 +1,6 @@
-﻿public enum AshFrameType
+﻿namespace XiaomiGateway3;
+
+public enum AshFrameType
 {
     Data,
     Ack,

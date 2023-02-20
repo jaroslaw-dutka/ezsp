@@ -1,5 +1,7 @@
 ﻿using System.Text;
 
+namespace XiaomiGateway3;
+
 public class AshControl
 {
     public AshFrameType Type { get; set; }
@@ -8,7 +10,12 @@ public class AshControl
     // public bool Reserved { get; set; }
     public bool NotReady { get; set; }
     public bool Retransmission { get; set; }
-    
+
+
+    public AshControl()
+    {
+        
+    }
 
     public AshControl(byte b)
     {
@@ -65,5 +72,10 @@ public class AshControl
         }
 
         return sb.ToString();
+    }
+
+    public byte ToByte()
+    {
+        return 0;
     }
 }
