@@ -2,7 +2,9 @@
 
 public class AshClient
 {
-    private readonly byte[] buffer = new byte[256];
+    private readonly byte[] specialBytes = Enum.GetValuesAsUnderlyingType<AshSpecialByte>().OfType<byte>().ToArray();
+    private readonly byte[] readBuffer = new byte[256];
+    private readonly byte[] writeBuffer = new byte[256];
     private readonly BinaryReader reader;
     private readonly BinaryWriter writer;
 
@@ -15,24 +17,24 @@ public class AshClient
 
     public AshFrame Read()
     {
-        var length = ReadFrame(buffer);
+        var length = ReadFrame(readBuffer);
 
         var frame = new AshFrame
         {
-            Control = AshControl.Parse(buffer[0]),
+            Control = AshControl.Parse(readBuffer[0]),
             Data = new byte[length - 3]
         };
 
-        buffer.AsSpan(1, length - 3).CopyTo(frame.Data);
+        readBuffer.AsSpan(1, length - 3).CopyTo(frame.Data);
 
-        var crc = Crc16.CcittFalse(buffer.AsSpan(0, length - 2));
+        var crc = Crc16.CcittFalse(readBuffer.AsSpan(0, length - 2));
         var crcBytes = BitConverter.GetBytes(crc);
-        if (crcBytes[0] != buffer[length - 1] || crcBytes[1] != buffer[length - 2])
+        if (crcBytes[0] != readBuffer[length - 1] || crcBytes[1] != readBuffer[length - 2])
             throw new Exception("Invalid CRC");
 
         if (frame.Control.Type == AshFrameType.Data)
         {
-            AshRandom.ReplaceInplace(frame.Data);
+            AshRandom.Replace(frame.Data);
         }
 
         return frame;
@@ -40,15 +42,21 @@ public class AshClient
 
     public void Write(AshFrame frame)
     {
-        var ctrl = frame.Control.GetByte();
-        var data = frame.Control.Type == AshFrameType.Data 
-            ? AshRandom.Replace(frame.Data) 
-            : frame.Data;
-        var crc = Crc16.CcittFalse(new[] { ctrl });
-        crc = Crc16.CcittFalse(crc, data);
+        var dataLength = frame.Data?.Length ?? 0;
+
+        writeBuffer[0] = frame.Control.ToByte();
+        if (frame.Data != null)
+        {
+            frame.Data.CopyTo(writeBuffer, 1);
+            if (frame.Control.Type == AshFrameType.Data)
+                AshRandom.Replace(writeBuffer.AsSpan(1, frame.Data.Length));
+        }
+        var crc = Crc16.CcittFalse(writeBuffer.AsSpan(0, dataLength + 1));
         var crcBytes = BitConverter.GetBytes(crc);
-        crcBytes = crcBytes.Reverse().ToArray();
-        WriteFrame(ctrl, data, crcBytes);
+        writeBuffer[dataLength + 1] = crcBytes[1];
+        writeBuffer[dataLength + 2] = crcBytes[0];
+        
+        WriteFrame(writeBuffer.AsSpan(0, dataLength + 3));
     }
 
     public void Reset()
@@ -94,7 +102,7 @@ public class AshClient
 
             if (escape)
             {
-                b |= 0x20;
+                b ^= 0x20;
                 escape = false;
             }
 
@@ -104,12 +112,20 @@ public class AshClient
         return index;
     }
 
-    private void WriteFrame(byte ctrl, Span<byte> data, Span<byte> crc)
+    private void WriteFrame(Span<byte> data)
     {
-        // TODO: escaping
-        writer.Write(ctrl);
-        writer.Write(data);
-        writer.Write(crc);
+        foreach (var b in data)
+        {
+            if (specialBytes.Contains(b))
+            {
+                writer.Write((byte)AshSpecialByte.Escape);
+                writer.Write((byte)(b ^ 0x20));
+            }
+            else
+            {
+                writer.Write(b);
+            }
+        }
         writer.Write((byte)0x7E);
         writer.Flush();
     }

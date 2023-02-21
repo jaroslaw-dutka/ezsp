@@ -17,15 +17,7 @@ public static class AshRandom
         }
     }
 
-    public static byte[] Replace(Span<byte> data)
-    {
-        var newData = new byte[data.Length];
-        data.CopyTo(newData);
-        ReplaceInplace(newData);
-        return newData;
-    }
-
-    public static void ReplaceInplace(Span<byte> data)
+    public static void Replace(Span<byte> data)
     {
         for (var i = 0; i < data.Length; i++)
             data[i] = (byte)(data[i] ^ Random[i]);

@@ -6,68 +6,64 @@ public class AshControl
 {
     public AshFrameType Type { get; set; }
     public byte FrameNumber { get; set; }        // Data
-    public bool Retransmission { get; set; }    // Data
+    public bool Retransmission { get; set; }     // Data
     public byte AckNumber { get; set; }          // Data, Ack, Nak
-    public bool Reserved { get; set; }          // Ack, Nak
-    public bool NotReady { get; set; }          // Ack, Nak
+    public bool Reserved { get; set; }           // Ack, Nak
+    public bool NotReady { get; set; }           // Ack, Nak
 
     public static AshControl Parse(byte b)
     {
         var ctrl = new AshControl();
-        if (b == 0xC2)
+        switch (b)
         {
-            ctrl.Type = AshFrameType.Error;
-        }
-        else if (b == 0xC1)
-        {
-            ctrl.Type = AshFrameType.Rstack;
-        }
-        else if (b == 0xC0)
-        {
-            ctrl.Type = AshFrameType.Rst;
-        }
-        else
-        {
-            ctrl.AckNumber = (byte)(b & 0x03);
+            case (byte)AshFrameType.Error:
+            case (byte)AshFrameType.Rstack:
+            case (byte)AshFrameType.Rst:
+                ctrl.Type = (AshFrameType)b;
+                break;
+            default:
+            {
+                if ((b & (byte)AshFrameTypeMask.Ack) == (byte)AshFrameType.Ack)
+                {
+                    ctrl.Type = AshFrameType.Ack;
+                    ctrl.AckNumber = (byte)(b & 0x07);
+                    ctrl.NotReady = ((b >> 3) & 0x01) == 0x01;
+                    ctrl.Reserved = ((b >> 4) & 0x01) == 0x01;
+                }
+                else if ((b & (byte)AshFrameTypeMask.Nak) == (byte)AshFrameType.Nak)
+                {
+                    ctrl.Type = AshFrameType.Nak;
+                    ctrl.AckNumber = (byte)(b & 0x07);
+                    ctrl.NotReady = ((b >> 3) & 0x01) == 0x01;
+                    ctrl.Reserved = ((b >> 4) & 0x01) == 0x01;
+                }
+                else if ((b & (byte)AshFrameTypeMask.Data) == (byte)AshFrameType.Data)
+                {
+                    ctrl.Type = AshFrameType.Data;
+                    ctrl.AckNumber = (byte)(b & 0x07);
+                    ctrl.Retransmission = ((b >> 3) & 0x01) == 0x01;
+                    ctrl.FrameNumber = (byte)((b >> 4) & 0x07);
+                }
+                else
+                    throw new ArgumentOutOfRangeException(nameof(b));
 
-            if ((b & 0x80) == 0)
-            {
-                ctrl.Type = AshFrameType.Data;
-                ctrl.Retransmission = (b >> 3 & 0x01) == 0x01;
-                ctrl.FrameNumber = (byte)(b >> 4 & 0x03);
-            }
-            else
-            {
-                ctrl.Type = (b >> 5 & 0x01) == 0x01
-                    ? AshFrameType.Nak
-                    : AshFrameType.Ack;
-                ctrl.NotReady = (b >> 3 & 0x01) == 0x01;
-                ctrl.Reserved = (b >> 4 & 0x01) == 0x01;
+                break;
             }
         }
+
         return ctrl;
     }
 
-    public byte GetByte()
+    public byte ToByte() => Type switch
     {
-        switch (Type)
-        {
-            case AshFrameType.Data:
-                return (byte)(FrameNumber << 4 | (Retransmission ? 0x08 : 0x00) | AckNumber);
-            case AshFrameType.Ack:
-                return (byte)(0x80 | (Reserved ? 0x10 : 0x00) | (NotReady ? 0x08 : 0x00) | AckNumber);
-            case AshFrameType.Nak:
-                return (byte)(0xA0 | (Reserved ? 0x10 : 0x00) | (NotReady ? 0x08 : 0x00) | AckNumber);
-            case AshFrameType.Rst:
-                return 0xC0;
-            case AshFrameType.Rstack:
-                return 0xC1;
-            case AshFrameType.Error:
-                return 0xC2;
-            default:
-                throw new ArgumentOutOfRangeException();
-        }
-    }
+        AshFrameType.Data => (byte)((byte)Type | (FrameNumber & 0x07) << 4 | (Retransmission ? 0x08 : 0x00) | (AckNumber & 0x07)),
+        AshFrameType.Ack => (byte)((byte)Type | (Reserved ? 0x10 : 0x00) | (NotReady ? 0x08 : 0x00) | (AckNumber & 0x07)),
+        AshFrameType.Nak => (byte)((byte)Type | (Reserved ? 0x10 : 0x00) | (NotReady ? 0x08 : 0x00) | (AckNumber & 0x07)),
+        AshFrameType.Rst => (byte)Type,
+        AshFrameType.Rstack => (byte)Type,
+        AshFrameType.Error => (byte)Type,
+        _ => throw new ArgumentOutOfRangeException()
+    };
 
     public override string ToString()
     {
@@ -76,14 +72,14 @@ public class AshControl
         sb.Append(Type);
         if (Type is AshFrameType.Ack or AshFrameType.Nak)
         {
-            sb.Append(NotReady ? ", NotReady " : ", Ready ");
+            sb.Append(NotReady ? ", NotReady" : ", Ready");
             sb.Append($", AckNumber: {AckNumber}");
         }
 
         if (Type == AshFrameType.Data)
         {
-            sb.Append($", FrameNumber: {FrameNumber} ");
-            sb.Append($", AckNumber: {AckNumber} ");
+            sb.Append($", FrameNumber: {FrameNumber}");
+            sb.Append($", AckNumber: {AckNumber}");
             if (Retransmission)
                 sb.Append(", Retransmission");
         }
