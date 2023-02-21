@@ -17,6 +17,7 @@ public class AshClient
 
     public AshFrame Read()
     {
+        Array.Fill<byte>(readBuffer, 0);
         var length = ReadFrame(readBuffer);
 
         var frame = new AshFrame
@@ -37,11 +38,20 @@ public class AshClient
             AshRandom.Replace(frame.Data);
         }
 
+        Console.ForegroundColor = ConsoleColor.DarkYellow;
+        Console.WriteLine("In");
+        Console.WriteLine(frame);
+
         return frame;
     }
 
     public void Write(AshFrame frame)
     {
+        Console.ForegroundColor = ConsoleColor.Blue;
+        Console.WriteLine("Out");
+        Console.WriteLine(frame);
+
+        Array.Fill<byte>(writeBuffer, 0);
         var dataLength = frame.Data?.Length ?? 0;
 
         writeBuffer[0] = frame.Control.ToByte();
