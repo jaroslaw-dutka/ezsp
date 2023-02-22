@@ -7,3 +7,5 @@ public class EzspFrame
     public ushort Id { get; set; }
     public byte[] Parameters { get; set; }
 }
+
+// public class EzspFrameBuilder
