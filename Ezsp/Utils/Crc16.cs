@@ -1,4 +1,4 @@
-﻿namespace Ezsp.Ash;
+﻿namespace Ezsp.Utils;
 
 public class Crc16
 {
@@ -15,7 +15,7 @@ public class Crc16
             for (int j = 0; j < 8; j++)
             {
                 if ((crc & 0x8000) > 0)
-                    crc = (ushort)((crc << 1) ^ 0x1021);
+                    crc = (ushort)(crc << 1 ^ 0x1021);
                 else
                     crc <<= 1;
             }

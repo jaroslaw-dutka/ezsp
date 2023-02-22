@@ -1,4 +1,5 @@
 ﻿using System.Buffers.Binary;
+using Ezsp.Utils;
 
 namespace Ezsp.Ash;
 
@@ -42,7 +43,7 @@ public class AshClient
             throw new Exception("Invalid CRC");
 
         if (frame.Control.Type == AshFrameType.Data) 
-            AshRandom.Replace(frame.Data);
+            AshPseudorandom.Xor(frame.Data);
 
         if (verbose)
         {
@@ -70,7 +71,7 @@ public class AshClient
         {
             frame.Data.CopyTo(writeBuffer, 1);
             if (frame.Control.Type == AshFrameType.Data)
-                AshRandom.Replace(writeBuffer.AsSpan(1, frame.Data.Length));
+                AshPseudorandom.Xor(writeBuffer.AsSpan(1, frame.Data.Length));
         }
         var crc = Crc16.CcittFalse(writeBuffer.AsSpan(0, dataLength + 1));
         BinaryPrimitives.WriteUInt16BigEndian(writeBuffer.AsSpan(dataLength + 1, 2), crc);
