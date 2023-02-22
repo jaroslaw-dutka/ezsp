@@ -1,6 +1,6 @@
 ﻿namespace Ezsp.Ash;
 
-public enum AshSpecialByte: byte
+public enum AshCtrlByte: byte
 {
     /// <summary>
     /// XON: Resume transmission. Used in XON/XOFF flow control. Always ignored if received by the NCP.

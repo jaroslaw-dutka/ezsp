@@ -5,7 +5,7 @@ using Ezsp.Ash;
 var tcp = new TcpClient();
 tcp.Connect("192.168.1.40", 8888);
 using var stream = tcp.GetStream();
-var ash = new AshClient(stream);
+var ash = new AshClient(stream, true);
 var ezsp = new EzspClient(ash);
 
 ezsp.Reset();

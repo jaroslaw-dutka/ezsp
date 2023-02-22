@@ -1,23 +1,33 @@
-﻿namespace Ezsp.Ash;
+﻿using System.Buffers.Binary;
+
+namespace Ezsp.Ash;
 
 public class AshClient
 {
-    private readonly byte[] specialBytes = Enum.GetValuesAsUnderlyingType<AshSpecialByte>().OfType<byte>().ToArray();
-    private readonly byte[] readBuffer = new byte[256];
-    private readonly byte[] writeBuffer = new byte[256];
+    private const int BufferSize = 256;
+
+    private readonly bool verbose;
+    private readonly byte[] specialBytes = Enum.GetValuesAsUnderlyingType<AshCtrlByte>().OfType<byte>().ToArray();
+    private readonly byte[] readBuffer = new byte[BufferSize];
+    private readonly byte[] writeBuffer = new byte[BufferSize];
     private readonly BinaryReader reader;
     private readonly BinaryWriter writer;
 
-    public AshClient(Stream stream)
+    public AshClient(Stream stream, bool verbose = false)
     {
-        var bufferedStream = new BufferedStream(stream, 256);
+        this.verbose = verbose;
+        var bufferedStream = new BufferedStream(stream, BufferSize);
         reader = new BinaryReader(bufferedStream);
         writer = new BinaryWriter(bufferedStream);
     }
 
+    public void Reset()
+    {
+        writer.Write((byte)AshCtrlByte.Discard);
+    }
+
     public AshFrame Read()
     {
-        Array.Fill<byte>(readBuffer, 0);
         var length = ReadFrame(readBuffer);
 
         var frame = new AshFrame
@@ -28,30 +38,34 @@ public class AshClient
 
         readBuffer.AsSpan(1, length - 3).CopyTo(frame.Data);
 
-        var crc = Crc16.CcittFalse(readBuffer.AsSpan(0, length - 2));
-        var crcBytes = BitConverter.GetBytes(crc);
-        if (crcBytes[0] != readBuffer[length - 1] || crcBytes[1] != readBuffer[length - 2])
+        var computedCrc = Crc16.CcittFalse(readBuffer.AsSpan(0, length - 2));
+        var receivedCrc = BinaryPrimitives.ReadUInt16BigEndian(readBuffer.AsSpan(length - 2, 2));
+
+        if (computedCrc != receivedCrc)
             throw new Exception("Invalid CRC");
 
-        if (frame.Control.Type == AshFrameType.Data)
-        {
+        if (frame.Control.Type == AshFrameType.Data) 
             AshRandom.Replace(frame.Data);
-        }
 
-        Console.ForegroundColor = ConsoleColor.DarkYellow;
-        Console.WriteLine("In");
-        Console.WriteLine(frame);
+        if (verbose)
+        {
+            Console.ForegroundColor = ConsoleColor.DarkYellow;
+            Console.WriteLine("In");
+            Console.WriteLine(frame);
+        }
 
         return frame;
     }
 
     public void Write(AshFrame frame)
     {
-        Console.ForegroundColor = ConsoleColor.Blue;
-        Console.WriteLine("Out");
-        Console.WriteLine(frame);
+        if (verbose)
+        {
+            Console.ForegroundColor = ConsoleColor.Blue;
+            Console.WriteLine("Out");
+            Console.WriteLine(frame);
+        }
 
-        Array.Fill<byte>(writeBuffer, 0);
         var dataLength = frame.Data?.Length ?? 0;
 
         writeBuffer[0] = frame.Control.ToByte();
@@ -62,16 +76,9 @@ public class AshClient
                 AshRandom.Replace(writeBuffer.AsSpan(1, frame.Data.Length));
         }
         var crc = Crc16.CcittFalse(writeBuffer.AsSpan(0, dataLength + 1));
-        var crcBytes = BitConverter.GetBytes(crc);
-        writeBuffer[dataLength + 1] = crcBytes[1];
-        writeBuffer[dataLength + 2] = crcBytes[0];
+        BinaryPrimitives.WriteUInt16BigEndian(writeBuffer.AsSpan(dataLength + 1, 2), crc);
         
         WriteFrame(writeBuffer.AsSpan(0, dataLength + 3));
-    }
-
-    public void Reset()
-    {
-        writer.Write((byte)AshSpecialByte.Discard);
     }
 
     private int ReadFrame(Span<byte> data)
@@ -84,25 +91,26 @@ public class AshClient
         {
             var b = reader.ReadByte();
 
-            switch ((AshSpecialByte)b)
+            switch ((AshCtrlByte)b)
             {
-                case AshSpecialByte.Resume:
-                case AshSpecialByte.Stop:
+                case AshCtrlByte.Resume:
+                case AshCtrlByte.Stop:
+                    // TODO
                     continue;
-                case AshSpecialByte.Substitute:
+                case AshCtrlByte.Substitute:
                     index = 0;
                     substitute = true;
                     continue;
-                case AshSpecialByte.Discard:
+                case AshCtrlByte.Discard:
                     index = 0;
                     continue;
-                case AshSpecialByte.EndOfFrame:
+                case AshCtrlByte.EndOfFrame:
                     if (substitute)
                         substitute = false;
                     else
                         endOfFrame = true;
                     continue;
-                case AshSpecialByte.Escape:
+                case AshCtrlByte.Escape:
                     escape = true;
                     continue;
             }
@@ -128,7 +136,7 @@ public class AshClient
         {
             if (specialBytes.Contains(b))
             {
-                writer.Write((byte)AshSpecialByte.Escape);
+                writer.Write((byte)AshCtrlByte.Escape);
                 writer.Write((byte)(b ^ 0x20));
             }
             else
