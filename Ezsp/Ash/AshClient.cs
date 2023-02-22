@@ -7,23 +7,20 @@ public class AshClient
     private const int BufferSize = 256;
 
     private readonly bool verbose;
-    private readonly byte[] specialBytes = Enum.GetValuesAsUnderlyingType<AshCtrlByte>().OfType<byte>().ToArray();
+    private readonly byte[] reservedBytes = Enum.GetValuesAsUnderlyingType<AshReservedByte>().OfType<byte>().ToArray();
     private readonly byte[] readBuffer = new byte[BufferSize];
     private readonly byte[] writeBuffer = new byte[BufferSize];
-    private readonly BinaryReader reader;
-    private readonly BinaryWriter writer;
+    private readonly Stream stream;
 
     public AshClient(Stream stream, bool verbose = false)
     {
         this.verbose = verbose;
-        var bufferedStream = new BufferedStream(stream, BufferSize);
-        reader = new BinaryReader(bufferedStream);
-        writer = new BinaryWriter(bufferedStream);
+        this.stream = new BufferedStream(stream, BufferSize);
     }
 
     public void Reset()
     {
-        writer.Write((byte)AshCtrlByte.Discard);
+        stream.WriteByte((byte)AshReservedByte.Discard);
     }
 
     public AshFrame Read()
@@ -89,28 +86,28 @@ public class AshClient
         var escape = false;
         while (!endOfFrame)
         {
-            var b = reader.ReadByte();
+            var b = (byte)stream.ReadByte();
 
-            switch ((AshCtrlByte)b)
+            switch ((AshReservedByte)b)
             {
-                case AshCtrlByte.Resume:
-                case AshCtrlByte.Stop:
+                case AshReservedByte.Resume:
+                case AshReservedByte.Stop:
                     // TODO
                     continue;
-                case AshCtrlByte.Substitute:
+                case AshReservedByte.Substitute:
                     index = 0;
                     substitute = true;
                     continue;
-                case AshCtrlByte.Discard:
+                case AshReservedByte.Discard:
                     index = 0;
                     continue;
-                case AshCtrlByte.EndOfFrame:
+                case AshReservedByte.EndOfFrame:
                     if (substitute)
                         substitute = false;
                     else
                         endOfFrame = true;
                     continue;
-                case AshCtrlByte.Escape:
+                case AshReservedByte.Escape:
                     escape = true;
                     continue;
             }
@@ -134,17 +131,17 @@ public class AshClient
     {
         foreach (var b in data)
         {
-            if (specialBytes.Contains(b))
+            if (reservedBytes.Contains(b))
             {
-                writer.Write((byte)AshCtrlByte.Escape);
-                writer.Write((byte)(b ^ 0x20));
+                stream.WriteByte((byte)AshReservedByte.Escape);
+                stream.WriteByte((byte)(b ^ 0x20));
             }
             else
             {
-                writer.Write(b);
+                stream.WriteByte(b);
             }
         }
-        writer.Write((byte)0x7E);
-        writer.Flush();
+        stream.WriteByte(0x7E);
+        stream.Flush();
     }
 }
