@@ -1,4 +1,6 @@
-﻿public class Crc16
+﻿namespace Ezsp.Ash;
+
+public class Crc16
 {
     public static ushort CcittFalse(Span<byte> data)
     {

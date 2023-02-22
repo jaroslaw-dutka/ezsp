@@ -1,6 +1,6 @@
 ﻿using System.Net.Sockets;
-using XiaomiGateway3;
-using XiaomiGateway3.Ash;
+using Ezsp;
+using Ezsp.Ash;
 
 var tcp = new TcpClient();
 tcp.Connect("192.168.1.40", 8888);

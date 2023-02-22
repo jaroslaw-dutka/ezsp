@@ -1,6 +1,6 @@
 ﻿using System.Text;
 
-namespace XiaomiGateway3.Ash;
+namespace Ezsp.Ash;
 
 public class AshFrame
 {

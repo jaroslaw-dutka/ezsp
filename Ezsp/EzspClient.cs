@@ -1,6 +1,6 @@
-﻿using XiaomiGateway3.Ash;
+﻿using Ezsp.Ash;
 
-namespace XiaomiGateway3;
+namespace Ezsp;
 
 public class EzspClient
 {

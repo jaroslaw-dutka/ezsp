@@ -1,4 +1,4 @@
-﻿namespace XiaomiGateway3;
+﻿namespace Ezsp;
 
 public class EzspFrame
 {

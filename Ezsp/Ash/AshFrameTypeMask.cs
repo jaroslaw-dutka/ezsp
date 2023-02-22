@@ -1,4 +1,4 @@
-﻿namespace XiaomiGateway3.Ash;
+﻿namespace Ezsp.Ash;
 
 public enum AshFrameTypeMask : byte
 {
