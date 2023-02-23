@@ -1,4 +1,5 @@
 ﻿using System.Buffers.Binary;
+using Ezsp.Extensions;
 using Ezsp.Utils;
 
 namespace Ezsp.Ash;
@@ -19,18 +20,18 @@ public class AshClient
         this.stream = new BufferedStream(stream, BufferSize);
     }
 
-    public void Reset()
-    {
-        stream.WriteByte((byte)AshReservedByte.Discard);
-    }
-
-    public AshFrame Read()
+    public AshFrame? Read()
     {
         var length = ReadFrame(readBuffer);
+        if (length < 0)
+            return null;
+
+        if (!AshControlByte.TryParse(readBuffer[0], out var ctrl))
+            return null;
 
         var frame = new AshFrame
         {
-            Control = AshControl.Parse(readBuffer[0]),
+            Control = ctrl,
             Data = new byte[length - 3]
         };
 
@@ -40,7 +41,26 @@ public class AshClient
         var receivedCrc = BinaryPrimitives.ReadUInt16BigEndian(readBuffer.AsSpan(length - 2, 2));
 
         if (computedCrc != receivedCrc)
-            throw new Exception("Invalid CRC");
+            return null;
+
+        switch (frame.Control.Type)
+        {
+            case AshFrameType.Data:
+                if (frame.Data is null || !frame.Data.Length.IsBetween(3, 128))
+                    return null;
+                break;
+            case AshFrameType.Ack:
+            case AshFrameType.Nak:
+            case AshFrameType.Rst:
+                if (frame.Data is not null && frame.Data.Length > 0)
+                    return null;
+                break;
+            case AshFrameType.Rstack:
+            case AshFrameType.Error:
+                if (frame.Data is null || frame.Data.Length != 2)
+                    return null;
+                break;
+        }
 
         if (frame.Control.Type == AshFrameType.Data) 
             AshPseudorandom.Xor(frame.Data);
@@ -48,7 +68,7 @@ public class AshClient
         if (verbose)
         {
             Console.ForegroundColor = ConsoleColor.DarkYellow;
-            Console.WriteLine("In");
+            Console.WriteLine("In " + DateTime.Now.ToString("O"));
             Console.WriteLine(frame);
         }
 
@@ -60,7 +80,7 @@ public class AshClient
         if (verbose)
         {
             Console.ForegroundColor = ConsoleColor.Blue;
-            Console.WriteLine("Out");
+            Console.WriteLine("Out " + DateTime.Now.ToString("O"));
             Console.WriteLine(frame);
         }
 
@@ -77,6 +97,60 @@ public class AshClient
         BinaryPrimitives.WriteUInt16BigEndian(writeBuffer.AsSpan(dataLength + 1, 2), crc);
         
         WriteFrame(writeBuffer.AsSpan(0, dataLength + 3));
+    }
+
+    public void WriteDiscard()
+    {
+        stream.WriteByte((byte)AshReservedByte.Discard);
+    }
+
+    public void WriteReset()
+    {
+        Write(new AshFrame
+        {
+            Control = new AshControlByte
+            {
+                Type = AshFrameType.Rst
+            }
+        });
+    }
+
+    public void WriteData(byte frmNumber, byte ackNumber, byte[] data)
+    {
+        Write(new AshFrame
+        {
+            Control = new AshControlByte
+            {
+                Type = AshFrameType.Data,
+                FrameNumber = frmNumber,
+                AckNumber = ackNumber,
+            },
+            Data = data
+        });
+    }
+
+    public void WriteAck(byte ackNumber)
+    {
+        Write(new AshFrame
+        {
+            Control = new AshControlByte
+            {
+                Type = AshFrameType.Ack,
+                AckNumber = ackNumber,
+            }
+        });
+    }
+
+    public void WriteNak(byte ackNumber)
+    {
+        Write(new AshFrame
+        {
+            Control = new AshControlByte
+            {
+                Type = AshFrameType.Nak,
+                AckNumber = ackNumber,
+            }
+        });
     }
 
     private int ReadFrame(Span<byte> data)
@@ -122,7 +196,8 @@ public class AshClient
                 escape = false;
             }
 
-            data[index++] = b;
+            if(index < data.Length)
+                data[index++] = b;
         }
 
         return index;

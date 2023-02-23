@@ -14,8 +14,8 @@ public class EzspClient
 
     public void Reset()
     {
-        client.Reset();
-        client.Write(new AshFrame { Control = new AshControl { Type = AshFrameType.Rst } });
+        client.WriteDiscard();
+        client.Write(new AshFrame { Control = new AshControlByte { Type = AshFrameType.Rst } });
         Read();
         SendLegacy(EzspCommand.Version, 4);
         var response = Read();
@@ -31,7 +31,7 @@ public class EzspClient
 
         client.Write(new AshFrame
         {
-            Control = new AshControl
+            Control = new AshControlByte
             {
                 Type = AshFrameType.Data,
                 FrameNumber = index,
@@ -57,7 +57,7 @@ public class EzspClient
 
         client.Write(new AshFrame
         {
-            Control = new AshControl
+            Control = new AshControlByte
             {
                 Type = AshFrameType.Data,
                 FrameNumber = index,
@@ -76,7 +76,7 @@ public class EzspClient
         {
             client.Write(new AshFrame
             {
-                Control = new AshControl
+                Control = new AshControlByte
                 {
                     Type = AshFrameType.Ack, 
                     AckNumber = frame.Control.AckNumber

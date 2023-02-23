@@ -2,7 +2,7 @@
 
 namespace Ezsp.Ash;
 
-public class AshControl
+public class AshControlByte
 {
     public AshFrameType Type { get; set; }
     public byte FrameNumber { get; set; }        // Data
@@ -11,9 +11,9 @@ public class AshControl
     public bool Reserved { get; set; }           // Ack, Nak
     public bool NotReady { get; set; }           // Ack, Nak
 
-    public static AshControl Parse(byte b)
+    public static bool TryParse(byte b, out AshControlByte ctrl)
     {
-        var ctrl = new AshControl();
+        ctrl = new AshControlByte();
         switch (b)
         {
             case (byte)AshFrameType.Error:
@@ -45,13 +45,13 @@ public class AshControl
                     ctrl.FrameNumber = (byte)((b >> 4) & 0x07);
                 }
                 else
-                    throw new ArgumentOutOfRangeException(nameof(b));
+                    return false;
 
                 break;
             }
         }
 
-        return ctrl;
+        return true;
     }
 
     public byte ToByte() => Type switch

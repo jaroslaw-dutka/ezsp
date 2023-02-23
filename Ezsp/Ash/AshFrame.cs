@@ -4,7 +4,7 @@ namespace Ezsp.Ash;
 
 public class AshFrame
 {
-    public AshControl Control { get; set; }
+    public AshControlByte Control { get; set; }
     public byte[]? Data { get; set; }
 
     public override string ToString()
