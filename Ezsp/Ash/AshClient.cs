@@ -1,223 +1,122 @@
-﻿using System.Buffers.Binary;
+﻿using System.Collections.Concurrent;
 using Ezsp.Extensions;
-using Ezsp.Utils;
 
 namespace Ezsp.Ash;
 
 public class AshClient
 {
-    private const int BufferSize = 256;
+    private readonly AshChannel channel;
+    private readonly ConcurrentQueue<AshDataSendTask> dataQueue = new();
+    private readonly ConcurrentDictionary<byte, TaskCompletionSource<byte[]>> responseQueue = new();
 
-    private readonly bool verbose;
-    private readonly byte[] reservedBytes = Enum.GetValuesAsUnderlyingType<AshReservedByte>().OfType<byte>().ToArray();
-    private readonly byte[] readBuffer = new byte[BufferSize];
-    private readonly byte[] writeBuffer = new byte[BufferSize];
-    private readonly Stream stream;
+    private CancellationTokenSource? cts;
 
-    public AshClient(Stream stream, bool verbose = false)
+    private byte outgoingFrame;
+    private byte incomingFrame;
+    private sbyte ackPending;
+
+    public AshClient(Stream stream)
     {
-        this.verbose = verbose;
-        this.stream = new BufferedStream(stream, BufferSize);
+        channel = new AshChannel(stream, true);
     }
 
-    public AshFrame? Read()
+    public void Connect()
     {
-        var length = ReadFrame(readBuffer);
-        if (length < 0)
-            return null;
+        cts?.Cancel();
 
-        if (!AshControlByte.TryParse(readBuffer[0], out var ctrl))
-            return null;
+        channel.WriteDiscard();
+        channel.WriteReset();
 
-        var frame = new AshFrame
-        {
-            Control = ctrl,
-            Data = new byte[length - 3]
-        };
+        var frame = channel.Read();
+        while (frame.Control.Type != AshFrameType.Rstack)
+            frame = channel.Read();
 
-        readBuffer.AsSpan(1, length - 3).CopyTo(frame.Data);
-
-        var computedCrc = Crc16.CcittFalse(readBuffer.AsSpan(0, length - 2));
-        var receivedCrc = BinaryPrimitives.ReadUInt16BigEndian(readBuffer.AsSpan(length - 2, 2));
-
-        if (computedCrc != receivedCrc)
-            return null;
-
-        switch (frame.Control.Type)
-        {
-            case AshFrameType.Data:
-                if (frame.Data is null || !frame.Data.Length.IsBetween(3, 128))
-                    return null;
-                break;
-            case AshFrameType.Ack:
-            case AshFrameType.Nak:
-            case AshFrameType.Rst:
-                if (frame.Data is not null && frame.Data.Length > 0)
-                    return null;
-                break;
-            case AshFrameType.Rstack:
-            case AshFrameType.Error:
-                if (frame.Data is null || frame.Data.Length != 2)
-                    return null;
-                break;
-        }
-
-        if (frame.Control.Type == AshFrameType.Data) 
-            AshPseudorandom.Xor(frame.Data);
-
-        if (verbose)
-        {
-            Console.ForegroundColor = ConsoleColor.DarkYellow;
-            Console.WriteLine("In " + DateTime.Now.ToString("O"));
-            Console.WriteLine(frame);
-        }
-
-        return frame;
+        cts = new CancellationTokenSource();
+        Task.Run(() => SendLoop(cts.Token), cts.Token);
+        Task.Run(() => ReadLoop(cts.Token), cts.Token);
     }
 
-    public void Write(AshFrame frame)
+    public void Disconnect()
     {
-        if (verbose)
-        {
-            Console.ForegroundColor = ConsoleColor.Blue;
-            Console.WriteLine("Out " + DateTime.Now.ToString("O"));
-            Console.WriteLine(frame);
-        }
-
-        var dataLength = frame.Data?.Length ?? 0;
-
-        writeBuffer[0] = frame.Control.ToByte();
-        if (frame.Data != null)
-        {
-            frame.Data.CopyTo(writeBuffer, 1);
-            if (frame.Control.Type == AshFrameType.Data)
-                AshPseudorandom.Xor(writeBuffer.AsSpan(1, frame.Data.Length));
-        }
-        var crc = Crc16.CcittFalse(writeBuffer.AsSpan(0, dataLength + 1));
-        BinaryPrimitives.WriteUInt16BigEndian(writeBuffer.AsSpan(dataLength + 1, 2), crc);
-        
-        WriteFrame(writeBuffer.AsSpan(0, dataLength + 3));
+        cts?.Cancel(true);
     }
 
-    public void WriteDiscard()
+    public Task<byte[]> SendSync(byte[] data)
     {
-        stream.WriteByte((byte)AshReservedByte.Discard);
+        var tcs = new TaskCompletionSource<byte[]>();
+        dataQueue.Enqueue(new AshDataSendTask { Data = data, Tcs = tcs });
+        return tcs.Task;
     }
 
-    public void WriteReset()
+    private async Task SendLoop(CancellationToken cancellationToken)
     {
-        Write(new AshFrame
+        while (!cancellationToken.IsCancellationRequested)
         {
-            Control = new AshControlByte
+            if (ackPending > 0)
             {
-                Type = AshFrameType.Rst
+                channel.WriteAck(incomingFrame);
+                ackPending = 0;
             }
-        });
-    }
-
-    public void WriteData(byte frmNumber, byte ackNumber, byte[] data)
-    {
-        Write(new AshFrame
-        {
-            Control = new AshControlByte
+            else if (ackPending < 0)
             {
-                Type = AshFrameType.Data,
-                FrameNumber = frmNumber,
-                AckNumber = ackNumber,
-            },
-            Data = data
-        });
-    }
-
-    public void WriteAck(byte ackNumber)
-    {
-        Write(new AshFrame
-        {
-            Control = new AshControlByte
-            {
-                Type = AshFrameType.Ack,
-                AckNumber = ackNumber,
+                channel.WriteNak(incomingFrame);
+                ackPending = 0;
             }
-        });
-    }
-
-    public void WriteNak(byte ackNumber)
-    {
-        Write(new AshFrame
-        {
-            Control = new AshControlByte
+            else if (responseQueue.Count > 0 || !dataQueue.TryDequeue(out var item))
             {
-                Type = AshFrameType.Nak,
-                AckNumber = ackNumber,
-            }
-        });
-    }
-
-    private int ReadFrame(Span<byte> data)
-    {
-        var index = 0;
-        var endOfFrame = false;
-        var substitute = false;
-        var escape = false;
-        while (!endOfFrame)
-        {
-            var b = (byte)stream.ReadByte();
-
-            switch ((AshReservedByte)b)
-            {
-                case AshReservedByte.Resume:
-                case AshReservedByte.Stop:
-                    // TODO
-                    continue;
-                case AshReservedByte.Substitute:
-                    index = 0;
-                    substitute = true;
-                    continue;
-                case AshReservedByte.Discard:
-                    index = 0;
-                    continue;
-                case AshReservedByte.EndOfFrame:
-                    if (substitute)
-                        substitute = false;
-                    else
-                        endOfFrame = true;
-                    continue;
-                case AshReservedByte.Escape:
-                    escape = true;
-                    continue;
-            }
-
-            if (substitute)
-                continue;
-
-            if (escape)
-            {
-                b ^= 0x20;
-                escape = false;
-            }
-
-            if(index < data.Length)
-                data[index++] = b;
-        }
-
-        return index;
-    }
-
-    private void WriteFrame(Span<byte> data)
-    {
-        foreach (var b in data)
-        {
-            if (reservedBytes.Contains(b))
-            {
-                stream.WriteByte((byte)AshReservedByte.Escape);
-                stream.WriteByte((byte)(b ^ 0x20));
+                await Task.Delay(100, cancellationToken);
             }
             else
             {
-                stream.WriteByte(b);
+                channel.WriteData(outgoingFrame, incomingFrame, item.Data);
+                responseQueue.TryAdd(outgoingFrame, item.Tcs);
+                outgoingFrame = outgoingFrame.IncMod8();
             }
         }
-        stream.WriteByte(0x7E);
-        stream.Flush();
+    }
+
+    private async Task ReadLoop(CancellationToken cancellationToken)
+    {
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            var frame = channel.Read();
+            if (frame == null)
+            {
+                ackPending = -1;
+                continue;
+            }
+
+            if (frame.Control.Type == AshFrameType.Error)
+                throw new AshException(frame.Data[0], frame.Data[1]);
+
+            if (frame.Control.Type == AshFrameType.Ack)
+            {
+                incomingFrame = frame.Control.AckNumber;
+                if (responseQueue.TryRemove(frame.Control.AckNumber, out var tcs))
+                    tcs.TrySetResult(null);
+            }
+
+            if (frame.Control.Type == AshFrameType.Nak)
+            {
+                incomingFrame = frame.Control.AckNumber;
+                if (responseQueue.TryRemove(frame.Control.AckNumber, out var tcs))
+                    tcs.TrySetResult(null);
+            }
+
+            if (frame.Control.Type == AshFrameType.Data)
+            {
+                if (frame.Control.FrameNumber != incomingFrame)
+                {
+                    ackPending = -1;
+                }
+                else
+                {
+                    incomingFrame = frame.Control.FrameNumber.IncMod8();
+                    if (responseQueue.TryRemove(frame.Control.FrameNumber, out var tcs))
+                        tcs.TrySetResult(frame.Data);
+                    ackPending = 1;
+                }
+            }
+        }
     }
 }

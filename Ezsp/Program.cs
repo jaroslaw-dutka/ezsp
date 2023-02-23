@@ -1,29 +1,25 @@
 ﻿using System.Net.Sockets;
 using Ezsp;
-using Ezsp.Ash;
 
 var tcp = new TcpClient();
 tcp.Connect("192.168.1.40", 8888);
-var stream = tcp.GetStream();
-var ash = new AshClient(stream, true);
-var controller = new AshController(ash);
-var client = new EzspClientV2(controller);
+var client = new EzspClient(tcp.GetStream());
 
 await client.ConnectAsync();
 
 // await client.SendAsync(EzspCommand.Version, 7);
 
 // Echo
-// await client.SendAsync(EzspCommand.Echo, 3, 1, 2, 3);
+ await client.SendAsync(EzspCommand.Echo, 3, 1, 2, 3);
 
 // Bootloader
 // await client.SendSync(new byte[] { index++, 0, 1, 0x8f, 0, 0 });
 
 // setTimer
-// await client.SendSync(new byte[] { index++, 0, 1, 0x0e, 0, 0, 100, 0, 1, 1 });
+// await client.SendAsync(EzspCommand.SetTimer, 0, 100, 0, 1, 1);
 
 // NOP
-//await client.SendAsync(EzspCommand.Nop);
+// await client.SendAsync(EzspCommand.Nop);
 
 // Delay
 //await client.SendSync(new byte[] { index++, 0, 1, 0x9D, 0, 0, 10 });
@@ -34,14 +30,6 @@ for (var i = 0; i < 5; i++)
     //await Task.Delay(3000);
 }
 
-await Task.Delay(200000);
-
-// ezsp.Send(EzspCommand.Version, 8);
-// ezsp.Read();
-//
-// ezsp.Send(EzspCommand.Echo, 3, 7, 8, 9);
-// ezsp.Read();
-//
 // ezsp.Send(EzspCommand.JoinNetwork, new byte[]
 // {
 //     0x02, // router
@@ -56,5 +44,7 @@ await Task.Delay(200000);
 //     0x00, 0x00, 0x00, 0x00 // NWK channel mask.        4 bytes
 // });
 // ezsp.Read();
+
+await Task.Delay(200000);
 
 Console.ReadLine();

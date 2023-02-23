@@ -1,4 +1,5 @@
-﻿using Ezsp.Ash;
+﻿using System.Buffers.Binary;
+using Ezsp.Ash;
 
 namespace Ezsp;
 
@@ -6,83 +7,48 @@ public class EzspClient
 {
     private readonly AshClient client;
     private byte index;
+    private byte version;
 
-    public EzspClient(AshClient client)
+    public EzspClient(Stream stream)
     {
-        this.client = client;
+        client = new AshClient(stream);
     }
 
-    public void Reset()
+    public async Task ConnectAsync()
     {
-        client.WriteDiscard();
-        client.Write(new AshFrame { Control = new AshControlByte { Type = AshFrameType.Rst } });
-        Read();
-        SendLegacy(EzspCommand.Version, 4);
-        var response = Read();
+        client.Connect();
+        var response = await SendAsync(EzspCommand.Version, 4);
+        version = response[0];
+        await SendAsync(EzspCommand.Version, version);
     }
 
-    public void SendLegacy(EzspCommand cmd, params byte[] parameters)
+    public async Task<byte[]> SendAsync(EzspCommand cmd, params byte[] data)
     {
-        var data = new byte[1 + 1 + 1 + parameters.Length];
-        data[0] = index;
-        data[1] = 0;
-        data[2] = (byte)cmd;
-        parameters.CopyTo(data, 3);
-
-        client.Write(new AshFrame
+        var request = new byte[data.Length + (version > 4 ? 5 : 3)];
+        var i = 0;
+        request[i++] = index++;
+        if (version >= 8)
         {
-            Control = new AshControlByte
-            {
-                Type = AshFrameType.Data,
-                FrameNumber = index,
-                AckNumber = index,
-            },
-            Data = data
-        });
-
-        index++;
-    }
-
-    public void Send(EzspCommand cmd, params byte[] parameters)
-    {
-        var cmdBytes = BitConverter.GetBytes((ushort)cmd);
-
-        var data = new byte[1 + 2 + 2 + parameters.Length];
-        data[0] = index;
-        data[1] = 0;
-        data[2] = 1;
-        data[3] = cmdBytes[0];
-        data[4] = cmdBytes[1];
-        parameters.CopyTo(data, 5);
-
-        client.Write(new AshFrame
-        {
-            Control = new AshControlByte
-            {
-                Type = AshFrameType.Data,
-                FrameNumber = index,
-                AckNumber = index,
-            },
-            Data = data
-        });
-
-        index++;
-    }
-
-    public byte[] Read()
-    {
-        var frame = client.Read();
-        if (frame.Control.Type == AshFrameType.Data)
-        {
-            client.Write(new AshFrame
-            {
-                Control = new AshControlByte
-                {
-                    Type = AshFrameType.Ack, 
-                    AckNumber = frame.Control.AckNumber
-                }
-            });
+            request[i++] = 0;
+            request[i++] = 1;
+            BinaryPrimitives.WriteUInt16BigEndian(request.AsSpan(i), (ushort)cmd);
+            i += 2;
         }
-        return frame.Data;
+        else if (version >= 6)
+        {
+            request[i++] = 0;
+            request[i++] = 0xFF;
+            request[i++] = 0;
+            request[i++] = (byte)cmd;
+        }
+        else
+        {
+            request[i++] = 0;
+            request[i++] = (byte)cmd;
+        }
+  
+        data.CopyTo(request.AsSpan(i));
+        var response = await client.SendSync(request);
+        return response.AsSpan(i).ToArray();
     }
 }
