@@ -49,6 +49,8 @@ public class EzspClient
   
         data.CopyTo(request.AsSpan(i));
         var response = await client.SendSync(request);
+        if (response is null)
+            return null;
         return response.AsSpan(i).ToArray();
     }
 }
