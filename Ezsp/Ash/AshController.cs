@@ -20,7 +20,7 @@ public class AshController
         this.client = client;
     }
 
-    public void Reset()
+    public void Connect()
     {
         cts?.Cancel();
 
@@ -32,8 +32,13 @@ public class AshController
             frame = client.Read();
 
         cts = new CancellationTokenSource();
-        Task.Run(SendLoop, cts.Token);
-        Task.Run(ReadLoop, cts.Token);
+        Task.Run(() => SendLoop(cts.Token), cts.Token);
+        Task.Run(() => ReadLoop(cts.Token), cts.Token);
+    }
+
+    public void Disconnect()
+    {
+        cts?.Cancel(true);
     }
 
     public Task<byte[]> SendSync(byte[] data)
@@ -43,13 +48,12 @@ public class AshController
         return tcs.Task;
     }
 
-    private async Task SendLoop()
+    private async Task SendLoop(CancellationToken cancellationToken)
     {
-        while (true)
+        while (!cancellationToken.IsCancellationRequested)
         {
             if (ackPending > 0)
             {
-                incomingFrame++;
                 client.WriteAck(incomingFrame);
                 ackPending = 0;
             }
@@ -58,9 +62,9 @@ public class AshController
                 client.WriteNak(incomingFrame);
                 ackPending = 0;
             }
-            else if (responseQueue.Count > 0 || !dataQueue.TryDequeue(out var item))
+            else if (responseQueue.Count > 1 || !dataQueue.TryDequeue(out var item))
             {
-                await Task.Delay(100);
+                await Task.Delay(100, cancellationToken);
             }
             else
             {
@@ -71,9 +75,9 @@ public class AshController
         }
     }
 
-    private void ReadLoop()
+    private async Task ReadLoop(CancellationToken cancellationToken)
     {
-        while (true)
+        while (!cancellationToken.IsCancellationRequested)
         {
             var frame = client.Read();
             if (frame == null)

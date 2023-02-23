@@ -1,39 +1,41 @@
 ﻿using System.Net.Sockets;
+using Ezsp;
 using Ezsp.Ash;
 
 var tcp = new TcpClient();
 tcp.Connect("192.168.1.40", 8888);
-using var stream = tcp.GetStream();
+var stream = tcp.GetStream();
 var ash = new AshClient(stream, true);
+var controller = new AshController(ash);
+var client = new EzspClientV2(controller);
 
-var aaa = new AshController(ash);
+await client.ConnectAsync();
 
-aaa.Reset();
+// await client.SendAsync(EzspCommand.Version, 7);
 
-byte index = 0;
+// Echo
+// await client.SendAsync(EzspCommand.Echo, 3, 1, 2, 3);
 
-var zzz = await aaa.SendSync(new byte[] { index++, 0, 0, 8 });
-// var ooo = await aaa.SendSync(new byte[] { index++, 0, 1, 0x0e, 0, 0, 0, 1, 1, 1 });
-// var xxx = aaa.SendSync(new byte[] { index++, 0, 1, 0x9D, 0, 0, 10 });
-//var qqq = aaa.SendSync(new byte[] { index++, 0, 1, 5, 0 });
-//var www = aaa.SendSync(new byte[] { index++, 0, 1, 0, 0, 8 });
-for (var i = 0; i < 100; i++)
+// Bootloader
+// await client.SendSync(new byte[] { index++, 0, 1, 0x8f, 0, 0 });
+
+// setTimer
+// await client.SendSync(new byte[] { index++, 0, 1, 0x0e, 0, 0, 100, 0, 1, 1 });
+
+// NOP
+//await client.SendAsync(EzspCommand.Nop);
+
+// Delay
+//await client.SendSync(new byte[] { index++, 0, 1, 0x9D, 0, 0, 10 });
+
+for (var i = 0; i < 5; i++)
 {
-    aaa.SendSync(new byte[] { index++, 0, 1, 0, 0, 8 });
-    // await Task.Delay(3000);
+    client.SendAsync(EzspCommand.Nop);
+    //await Task.Delay(3000);
 }
 
 await Task.Delay(200000);
 
-//var rrr = aaa.SendSync(new byte[] { 4, 0, 1, 0x81, 0, 3, 1, 2, 3 });
-
-//await Task.Delay(2000);
-
-//var hhh = 3;
-// var ezsp = new EzspClient(ash);
-//
-// ezsp.Reset();
-//
 // ezsp.Send(EzspCommand.Version, 8);
 // ezsp.Read();
 //
