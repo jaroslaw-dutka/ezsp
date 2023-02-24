@@ -8,8 +8,10 @@ public class AshChannel
 {
     private const int BufferSize = 256;
 
+    private byte escapeBit = 0x20;
     private readonly bool verbose;
     private readonly byte[] reservedBytes = Enum.GetValuesAsUnderlyingType<AshReservedByte>().OfType<byte>().ToArray();
+    private readonly ManualResetEventSlim transmissionEnabled = new(true);
     private readonly byte[] readBuffer = new byte[BufferSize];
     private readonly byte[] writeBuffer = new byte[BufferSize];
     private readonly Stream stream;
@@ -62,7 +64,7 @@ public class AshChannel
                 break;
         }
 
-        if (frame.Control.Type == AshFrameType.Data) 
+        if (frame.Control.Type == AshFrameType.Data)
             AshPseudorandom.Xor(frame.Data);
 
         if (verbose)
@@ -93,15 +95,16 @@ public class AshChannel
             if (frame.Control.Type == AshFrameType.Data)
                 AshPseudorandom.Xor(writeBuffer.AsSpan(1, frame.Data.Length));
         }
+
         var crc = Crc16.CcittFalse(writeBuffer.AsSpan(0, dataLength + 1));
         BinaryPrimitives.WriteUInt16BigEndian(writeBuffer.AsSpan(dataLength + 1, 2), crc);
-        
+
         WriteFrame(writeBuffer.AsSpan(0, dataLength + 3));
     }
 
     public void WriteDiscard()
     {
-        stream.WriteByte((byte)AshReservedByte.Discard);
+        stream.WriteByte((byte)AshReservedByte.Cancel);
     }
 
     public void WriteReset()
@@ -165,18 +168,20 @@ public class AshChannel
 
             switch ((AshReservedByte)b)
             {
-                case AshReservedByte.Resume:
-                case AshReservedByte.Stop:
-                    // TODO
+                case AshReservedByte.XON:
+                    transmissionEnabled.Set();
+                    break;
+                case AshReservedByte.XOFF:
+                    transmissionEnabled.Reset();
                     continue;
                 case AshReservedByte.Substitute:
                     index = 0;
                     substitute = true;
                     continue;
-                case AshReservedByte.Discard:
+                case AshReservedByte.Cancel:
                     index = 0;
                     continue;
-                case AshReservedByte.EndOfFrame:
+                case AshReservedByte.Flag:
                     if (substitute)
                         substitute = false;
                     else
@@ -187,14 +192,14 @@ public class AshChannel
                     continue;
             }
 
-            if (substitute)
-                continue;
-
             if (escape)
             {
-                b ^= 0x20;
+                b ^= escapeBit;
                 escape = false;
             }
+
+            if (substitute)
+                continue;
 
             if (index < buffer.Length)
                 buffer[index] = b;
@@ -212,7 +217,7 @@ public class AshChannel
             if (reservedBytes.Contains(b))
             {
                 stream.WriteByte((byte)AshReservedByte.Escape);
-                stream.WriteByte((byte)(b ^ 0x20));
+                stream.WriteByte((byte)(b ^ escapeBit));
             }
             else
             {
@@ -220,6 +225,10 @@ public class AshChannel
             }
         }
         stream.WriteByte(0x7E);
+
+        if (!transmissionEnabled.IsSet)
+            transmissionEnabled.Wait();
+
         stream.Flush();
     }
 }
