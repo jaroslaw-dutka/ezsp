@@ -153,7 +153,7 @@ public class AshChannel
         });
     }
 
-    private int ReadFrame(Span<byte> data)
+    private int ReadFrame(Span<byte> buffer)
     {
         var index = 0;
         var endOfFrame = false;
@@ -196,16 +196,18 @@ public class AshChannel
                 escape = false;
             }
 
-            if(index < data.Length)
-                data[index++] = b;
+            if (index < buffer.Length)
+                buffer[index] = b;
+
+            index++;
         }
 
         return index;
     }
 
-    private void WriteFrame(Span<byte> data)
+    private void WriteFrame(Span<byte> buffer)
     {
-        foreach (var b in data)
+        foreach (var b in buffer)
         {
             if (reservedBytes.Contains(b))
             {

@@ -8,7 +8,6 @@ public class AshControlByte
     public byte FrameNumber { get; set; }        // Data
     public bool Retransmission { get; set; }     // Data
     public byte AckNumber { get; set; }          // Data, Ack, Nak
-    public bool Reserved { get; set; }           // Ack, Nak
     public bool NotReady { get; set; }           // Ack, Nak
 
     public static bool TryParse(byte b, out AshControlByte ctrl)
@@ -28,14 +27,12 @@ public class AshControlByte
                     ctrl.Type = AshFrameType.Ack;
                     ctrl.AckNumber = (byte)(b & 0x07);
                     ctrl.NotReady = ((b >> 3) & 0x01) == 0x01;
-                    ctrl.Reserved = ((b >> 4) & 0x01) == 0x01;
                 }
                 else if ((b & (byte)AshFrameTypeMask.Nak) == (byte)AshFrameType.Nak)
                 {
                     ctrl.Type = AshFrameType.Nak;
                     ctrl.AckNumber = (byte)(b & 0x07);
                     ctrl.NotReady = ((b >> 3) & 0x01) == 0x01;
-                    ctrl.Reserved = ((b >> 4) & 0x01) == 0x01;
                 }
                 else if ((b & (byte)AshFrameTypeMask.Data) == (byte)AshFrameType.Data)
                 {
@@ -57,8 +54,8 @@ public class AshControlByte
     public byte ToByte() => Type switch
     {
         AshFrameType.Data => (byte)((byte)Type | (FrameNumber & 0x07) << 4 | (Retransmission ? 0x08 : 0x00) | (AckNumber & 0x07)),
-        AshFrameType.Ack => (byte)((byte)Type | (Reserved ? 0x10 : 0x00) | (NotReady ? 0x08 : 0x00) | (AckNumber & 0x07)),
-        AshFrameType.Nak => (byte)((byte)Type | (Reserved ? 0x10 : 0x00) | (NotReady ? 0x08 : 0x00) | (AckNumber & 0x07)),
+        AshFrameType.Ack => (byte)((byte)Type | (NotReady ? 0x08 : 0x00) | (AckNumber & 0x07)),
+        AshFrameType.Nak => (byte)((byte)Type | (NotReady ? 0x08 : 0x00) | (AckNumber & 0x07)),
         AshFrameType.Rst => (byte)Type,
         AshFrameType.Rstack => (byte)Type,
         AshFrameType.Error => (byte)Type,
