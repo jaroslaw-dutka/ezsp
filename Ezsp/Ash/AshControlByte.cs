@@ -51,6 +51,10 @@ public class AshControlByte
         return true;
     }
 
+    public static byte DataByte(bool rtx, byte frmNum, byte ackNum) => (byte)((frmNum & 0x07) << 4 | (rtx ? 0x08 : 0x00) | (ackNum & 0x07));
+    public static byte AckByte(bool notReady, byte ackNum) => (byte)((byte)AshFrameType.Ack | (notReady ? 0x08 : 0x00) | (ackNum & 0x07));
+    public static byte NakByte(bool notReady, byte ackNum) => (byte)((byte)AshFrameType.Nak | (notReady ? 0x08 : 0x00) | (ackNum & 0x07));
+
     public byte ToByte() => Type switch
     {
         AshFrameType.Data => (byte)((byte)Type | (FrameNumber & 0x07) << 4 | (Retransmission ? 0x08 : 0x00) | (AckNumber & 0x07)),

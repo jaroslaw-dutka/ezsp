@@ -14,9 +14,9 @@ public class EzspClient
         client = new AshClient(stream);
     }
 
-    public async Task ConnectAsync()
+    public async Task ConnectAsync(CancellationToken cancellationToken)
     {
-        client.Connect();
+        await client.ConnectAsync(cancellationToken);
         var response = await SendAsync(EzspCommand.Version, 4);
         version = response[0];
         await SendAsync(EzspCommand.Version, version);

@@ -22,4 +22,17 @@ public class Crc16
         }
         return crc;
     }
+
+    public static ushort CcittFalse(ushort crc, byte data)
+    {
+        crc ^= (ushort)(data << 8);
+        for (int j = 0; j < 8; j++)
+        {
+            if ((crc & 0x8000) > 0)
+                crc = (ushort)(crc << 1 ^ 0x1021);
+            else
+                crc <<= 1;
+        }
+        return crc;
+    }
 }

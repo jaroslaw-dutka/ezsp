@@ -1,12 +1,15 @@
 ﻿using System.Collections.Concurrent;
-using Ezsp.Extensions;
+using Ezsp.Utils;
 
 namespace Ezsp.Ash;
 
 public class AshClient
 {
-    private readonly AshChannel channel;
+    private readonly AshReader reader;
+    private readonly AshWriter writer;
+
     private readonly ConcurrentQueue<AshDataSendTask> dataQueue = new();
+    private readonly ConcurrentQueue<byte[]> inQueue = new();
     private readonly ConcurrentDictionary<byte, TaskCompletionSource<byte[]>> responseQueue = new();
 
     private CancellationTokenSource? cts;
@@ -14,26 +17,30 @@ public class AshClient
     private byte outgoingFrame;
     private byte incomingFrame;
     private sbyte ackPending;
-
+    
     public AshClient(Stream stream)
     {
-        channel = new AshChannel(stream, true);
+        reader = new AshReader(stream, 256, true);
+        writer = new AshWriter(stream, 256, true);
     }
 
-    public void Connect()
+    public async Task ConnectAsync(CancellationToken cancellationToken)
     {
-        cts?.Cancel();
+        if (cts is not null)
+        {
+            cts.Cancel();
+        }
 
-        channel.WriteDiscard();
-        channel.WriteReset();
+        await writer.DiscardAsync(cancellationToken);
+        await writer.WriteResetAsync(cancellationToken);
 
-        var frame = channel.Read();
+        var frame = await reader.ReadAsync(cancellationToken);
         while (frame.Control.Type != AshFrameType.Rstack)
-            frame = channel.Read();
+            frame = await reader.ReadAsync(cancellationToken);
 
         cts = new CancellationTokenSource();
-        Task.Run(() => SendLoop(cts.Token), cts.Token);
-        Task.Run(() => ReadLoop(cts.Token), cts.Token);
+        Task.Run(async () => await SendLoop(cts.Token), cts.Token);
+        Task.Run(async () => await ReadLoop(cts.Token), cts.Token);
     }
 
     public void Disconnect()
@@ -50,73 +57,85 @@ public class AshClient
 
     private async Task SendLoop(CancellationToken cancellationToken)
     {
-        while (!cancellationToken.IsCancellationRequested)
+        try
         {
-            if (ackPending > 0)
+            while (!cancellationToken.IsCancellationRequested)
             {
-                channel.WriteAck(incomingFrame);
-                ackPending = 0;
+                if (ackPending > 0)
+                {
+                    await writer.WriteAckAsync(incomingFrame, cancellationToken);
+                    ackPending = 0;
+                }
+                else if (ackPending < 0)
+                {
+                    await writer.WriteNakAsync(incomingFrame, cancellationToken);
+                    ackPending = 0;
+                }
+                else if (responseQueue.Count > 0 || !dataQueue.TryDequeue(out var item))
+                {
+                    await Task.Delay(100, cancellationToken);
+                }
+                else
+                {
+                    await writer.WriteDataAsync(outgoingFrame, incomingFrame, item.Data, cancellationToken);
+                    responseQueue.TryAdd(outgoingFrame, item.Tcs);
+                    outgoingFrame = outgoingFrame.IncMod8();
+                }
             }
-            else if (ackPending < 0)
-            {
-                channel.WriteNak(incomingFrame);
-                ackPending = 0;
-            }
-            else if (responseQueue.Count > 0 || !dataQueue.TryDequeue(out var item))
-            {
-                await Task.Delay(100, cancellationToken);
-            }
-            else
-            {
-                channel.WriteData(outgoingFrame, incomingFrame, item.Data);
-                responseQueue.TryAdd(outgoingFrame, item.Tcs);
-                outgoingFrame = outgoingFrame.IncMod8();
-            }
+        }
+        catch (TaskCanceledException)
+        {
         }
     }
 
     private async Task ReadLoop(CancellationToken cancellationToken)
     {
-        while (!cancellationToken.IsCancellationRequested)
+        try
         {
-            var frame = channel.Read();
-            if (frame == null)
+            while (!cancellationToken.IsCancellationRequested)
             {
-                ackPending = -1;
-                continue;
-            }
-
-            if (frame.Control.Type == AshFrameType.Error)
-                throw new AshException(frame.Data[0], frame.Data[1]);
-
-            if (frame.Control.Type == AshFrameType.Ack)
-            {
-                incomingFrame = frame.Control.AckNumber;
-                if (responseQueue.TryRemove(frame.Control.AckNumber, out var tcs))
-                    tcs.TrySetResult(null);
-            }
-
-            if (frame.Control.Type == AshFrameType.Nak)
-            {
-                incomingFrame = frame.Control.AckNumber;
-                if (responseQueue.TryRemove(frame.Control.AckNumber, out var tcs))
-                    tcs.TrySetResult(null);
-            }
-
-            if (frame.Control.Type == AshFrameType.Data)
-            {
-                if (frame.Control.FrameNumber != incomingFrame)
+                var frame = await reader.ReadAsync(cancellationToken);
+                if (frame == null)
                 {
                     ackPending = -1;
+                    continue;
                 }
-                else
+
+                if (frame.Control.Type == AshFrameType.Error)
+                    throw new AshException(frame.Data[0], frame.Data[1]);
+
+                if (frame.Control.Type == AshFrameType.Ack)
                 {
-                    incomingFrame = frame.Control.FrameNumber.IncMod8();
-                    if (responseQueue.TryRemove(frame.Control.FrameNumber, out var tcs))
-                        tcs.TrySetResult(frame.Data);
-                    ackPending = 1;
+                    incomingFrame = frame.Control.AckNumber;
+                    if (responseQueue.TryRemove(frame.Control.AckNumber, out var tcs))
+                        tcs.TrySetResult(null);
+                }
+
+                if (frame.Control.Type == AshFrameType.Nak)
+                {
+                    incomingFrame = frame.Control.AckNumber;
+                    if (responseQueue.TryRemove(frame.Control.AckNumber, out var tcs))
+                        tcs.TrySetResult(null);
+                }
+
+                if (frame.Control.Type == AshFrameType.Data)
+                {
+                    if (frame.Control.FrameNumber != incomingFrame)
+                    {
+                        ackPending = -1;
+                    }
+                    else
+                    {
+                        incomingFrame = frame.Control.FrameNumber.IncMod8();
+                        if (responseQueue.TryRemove(frame.Control.FrameNumber, out var tcs))
+                            tcs.TrySetResult(frame.Data);
+                        ackPending = 1;
+                    }
                 }
             }
+        }
+        catch (TaskCanceledException)
+        {
         }
     }
 }
