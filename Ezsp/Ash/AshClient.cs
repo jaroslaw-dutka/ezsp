@@ -5,14 +5,12 @@ namespace Ezsp.Ash;
 
 public class AshClient
 {
+    private readonly ConcurrentQueue<AshDataSendTask> sendQueue = new();
+
     private readonly AshReader reader;
     private readonly AshWriter writer;
 
-    private readonly ConcurrentQueue<AshDataSendTask> sendQueue = new();
-    private readonly ConcurrentDictionary<byte, TaskCompletionSource> responseQueue = new();
-
     private CancellationTokenSource? cts;
-
     private byte outgoingFrame;
     private byte incomingFrame;
     private sbyte ackPending;
@@ -27,18 +25,30 @@ public class AshClient
 
     public async Task ConnectAsync(CancellationToken cancellationToken)
     {
-        cts?.Cancel();
+        await DisconnectAsync(cancellationToken);
 
         await writer.DiscardAsync(cancellationToken);
         await writer.WriteResetAsync(cancellationToken);
 
         var frame = await reader.ReadAsync(cancellationToken);
-        while (frame?.Control.Type != AshFrameType.Rstack)
+        while (frame?.Control.Type != AshFrameType.Rstack) 
             frame = await reader.ReadAsync(cancellationToken);
 
         cts = new CancellationTokenSource();
         Task.Run(async () => await SendLoop(cts.Token), cts.Token);
         Task.Run(async () => await ReadLoop(cts.Token), cts.Token);
+    }
+
+    public Task DisconnectAsync(CancellationToken cancellationToken)
+    {
+        cts?.Cancel();
+        cts = null;
+
+        outgoingFrame = 0;
+        incomingFrame = 0;
+        ackPending = 0;
+
+        return Task.CompletedTask;
     }
 
     public Task SendAsync(byte[] data)
@@ -60,7 +70,7 @@ public class AshClient
                     await writer.WriteNakAsync(incomingFrame, cancellationToken);
                 ackPending = 0;
             }
-            else if (!responseQueue.IsEmpty || !sendQueue.TryDequeue(out var item))
+            else if (!sendQueue.TryDequeue(out var item))
             {
                 try
                 {

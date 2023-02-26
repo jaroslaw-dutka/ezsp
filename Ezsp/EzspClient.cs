@@ -6,9 +6,9 @@ namespace Ezsp;
 public class EzspClient
 {
     private readonly AshClient client;
-    private byte index;
+    private byte msgIndex;
     private byte version;
-    private TaskCompletionSource<byte[]>?[] tcss = new TaskCompletionSource<byte[]>[256];
+    private TaskCompletionSource<ReadOnlyMemory<byte>>?[] tcss = new TaskCompletionSource<ReadOnlyMemory<byte>>[256];
 
     public EzspClient(Stream stream)
     {
@@ -20,37 +20,53 @@ public class EzspClient
 
     public async Task ConnectAsync(CancellationToken cancellationToken)
     {
+        await DisconnectAsync(cancellationToken);
         await client.ConnectAsync(cancellationToken);
         var response = await SendAsync(EzspCommand.Version, 4);
-        version = response[3];
+        version = response.Span[0];
         await SendAsync(EzspCommand.Version, version);
     }
 
-    public async Task<byte[]> SendAsync(EzspCommand cmd, params byte[] data)
+    public async Task DisconnectAsync(CancellationToken cancellationToken)
     {
-        var tcs = new TaskCompletionSource<byte[]>();
-        tcss[index] = tcs;
+        await client.DisconnectAsync(cancellationToken);
+
+        msgIndex = 0;
+        version = 0;
+        for (var i = 0; i < tcss.Length; i++)
+        {
+            var tcs = tcss[i];
+            tcss[i] = null;
+            if (tcs is not null)
+                tcs.SetResult(Array.Empty<byte>());
+        }
+    }
+
+    public async Task<ReadOnlyMemory<byte>> SendAsync(EzspCommand cmd, params byte[] data)
+    {
+        var tcs = new TaskCompletionSource<ReadOnlyMemory<byte>>();
+        tcss[msgIndex] = tcs;
 
         var request = new byte[data.Length + (version > 4 ? 5 : 3)];
         var i = 0;
-        request[i++] = index++;
+
+        request[i++] = msgIndex++;
+        request[i++] = 0;
+
         if (version >= 8)
         {
-            request[i++] = 0;
             request[i++] = 1;
             BinaryPrimitives.WriteUInt16BigEndian(request.AsSpan(i), (ushort)cmd);
             i += 2;
         }
         else if (version >= 6)
         {
-            request[i++] = 0;
             request[i++] = 0xFF;
             request[i++] = 0;
             request[i++] = (byte)cmd;
         }
         else
         {
-            request[i++] = 0;
             request[i++] = (byte)cmd;
         }
   
@@ -64,6 +80,7 @@ public class EzspClient
         var i = data[0];
         var cts = tcss[i];
         tcss[i] = null;
-        cts?.SetResult(data);
+        var memory = data.AsMemory(version > 4 ? 5 : 3);
+        cts?.SetResult(memory);
     }
 }
