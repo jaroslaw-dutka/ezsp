@@ -9,7 +9,6 @@ public class AshClient
     private readonly AshWriter writer;
 
     private readonly ConcurrentQueue<AshDataSendTask> dataQueue = new();
-    private readonly ConcurrentQueue<byte[]> inQueue = new();
     private readonly ConcurrentDictionary<byte, TaskCompletionSource<byte[]>> responseQueue = new();
 
     private CancellationTokenSource? cts;
@@ -17,7 +16,9 @@ public class AshClient
     private byte outgoingFrame;
     private byte incomingFrame;
     private sbyte ackPending;
-    
+
+    public Action<byte[]> OnMessage { get; set; }
+
     public AshClient(Stream stream)
     {
         reader = new AshReader(stream, 256, true);
@@ -26,26 +27,18 @@ public class AshClient
 
     public async Task ConnectAsync(CancellationToken cancellationToken)
     {
-        if (cts is not null)
-        {
-            cts.Cancel();
-        }
+        cts?.Cancel();
 
         await writer.DiscardAsync(cancellationToken);
         await writer.WriteResetAsync(cancellationToken);
 
         var frame = await reader.ReadAsync(cancellationToken);
-        while (frame.Control.Type != AshFrameType.Rstack)
+        while (frame?.Control.Type != AshFrameType.Rstack)
             frame = await reader.ReadAsync(cancellationToken);
 
         cts = new CancellationTokenSource();
         Task.Run(async () => await SendLoop(cts.Token), cts.Token);
         Task.Run(async () => await ReadLoop(cts.Token), cts.Token);
-    }
-
-    public void Disconnect()
-    {
-        cts?.Cancel(true);
     }
 
     public Task<byte[]> SendSync(byte[] data)
@@ -71,15 +64,15 @@ public class AshClient
                     await writer.WriteNakAsync(incomingFrame, cancellationToken);
                     ackPending = 0;
                 }
-                else if (responseQueue.Count > 0 || !dataQueue.TryDequeue(out var item))
+                else if (!responseQueue.IsEmpty || !dataQueue.TryDequeue(out var item))
                 {
                     await Task.Delay(100, cancellationToken);
                 }
                 else
                 {
                     await writer.WriteDataAsync(outgoingFrame, incomingFrame, item.Data, cancellationToken);
-                    responseQueue.TryAdd(outgoingFrame, item.Tcs);
                     outgoingFrame = outgoingFrame.IncMod8();
+                    item.Tcs.SetResult(Array.Empty<byte>());
                 }
             }
         }
@@ -106,16 +99,20 @@ public class AshClient
 
                 if (frame.Control.Type == AshFrameType.Ack)
                 {
-                    incomingFrame = frame.Control.AckNumber;
-                    if (responseQueue.TryRemove(frame.Control.AckNumber, out var tcs))
-                        tcs.TrySetResult(null);
+                    if (frame.Control.AckNumber != outgoingFrame)
+                    {
+                        ackPending = -1;
+                    }
                 }
 
                 if (frame.Control.Type == AshFrameType.Nak)
                 {
-                    incomingFrame = frame.Control.AckNumber;
-                    if (responseQueue.TryRemove(frame.Control.AckNumber, out var tcs))
-                        tcs.TrySetResult(null);
+                    if (frame.Control.AckNumber != outgoingFrame)
+                    {
+                        ackPending = -1;
+                    }
+
+                    // TODO: handle NAK
                 }
 
                 if (frame.Control.Type == AshFrameType.Data)
@@ -126,10 +123,9 @@ public class AshClient
                     }
                     else
                     {
-                        incomingFrame = frame.Control.FrameNumber.IncMod8();
-                        if (responseQueue.TryRemove(frame.Control.FrameNumber, out var tcs))
-                            tcs.TrySetResult(frame.Data);
                         ackPending = 1;
+                        incomingFrame = frame.Control.FrameNumber.IncMod8();
+                        OnMessage?.Invoke(frame.Data);
                     }
                 }
             }

@@ -8,22 +8,29 @@ public class EzspClient
     private readonly AshClient client;
     private byte index;
     private byte version;
+    private TaskCompletionSource<byte[]>?[] tcss = new TaskCompletionSource<byte[]>[256];
 
     public EzspClient(Stream stream)
     {
-        client = new AshClient(stream);
+        client = new AshClient(stream)
+        {
+            OnMessage = OnMessage
+        };
     }
 
     public async Task ConnectAsync(CancellationToken cancellationToken)
     {
         await client.ConnectAsync(cancellationToken);
         var response = await SendAsync(EzspCommand.Version, 4);
-        version = response[0];
+        version = response[3];
         await SendAsync(EzspCommand.Version, version);
     }
 
     public async Task<byte[]> SendAsync(EzspCommand cmd, params byte[] data)
     {
+        var tcs = new TaskCompletionSource<byte[]>();
+        tcss[index] = tcs;
+
         var request = new byte[data.Length + (version > 4 ? 5 : 3)];
         var i = 0;
         request[i++] = index++;
@@ -48,9 +55,15 @@ public class EzspClient
         }
   
         data.CopyTo(request.AsSpan(i));
-        var response = await client.SendSync(request);
-        if (response is null)
-            return null;
-        return response.AsSpan(i).ToArray();
+        await client.SendSync(request);
+        return await tcs.Task;
+    }
+
+    private void OnMessage(byte[] data)
+    {
+        var i = data[0];
+        var cts = tcss[i];
+        tcss[i] = null;
+        cts?.SetResult(data);
     }
 }

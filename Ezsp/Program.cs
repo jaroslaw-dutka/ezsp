@@ -16,7 +16,7 @@ await client.ConnectAsync(CancellationToken.None);
 // await client.SendSync(new byte[] { index++, 0, 1, 0x8f, 0, 0 });
 
 // setTimer
-// await client.SendAsync(EzspCommand.SetTimer, 0, 100, 0, 1, 1);
+await client.SendAsync(EzspCommand.SetTimer, 0, 100, 0, 1, 1);
 
 // NOP
 // await client.SendAsync(EzspCommand.Nop);
@@ -24,10 +24,13 @@ await client.ConnectAsync(CancellationToken.None);
 // Delay
 //await client.SendAsync(new byte[] { index++, 0, 1, 0x9D, 0, 0, 10 });
 
-for (var i = 0; i < 100; i++)
+for (var i = 0; i < 200; i++)
 {
-    client.SendAsync(EzspCommand.Nop);
-    //await Task.Delay(3000);
+    // await client.SendAsync(EzspCommand.Nop);
+    var aa = await client.SendAsync(EzspCommand.Version, 7);
+    if (aa[5] != 0x07)
+        throw new Exception("aaa");
+    // await Task.Delay(3000);
 }
 
 // await Task.Delay(3000);
