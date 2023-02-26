@@ -14,7 +14,7 @@ public class EzspClient
     {
         client = new AshClient(stream)
         {
-            OnMessage = OnMessage
+            DataReceived = DataReceived
         };
     }
 
@@ -55,11 +55,11 @@ public class EzspClient
         }
   
         data.CopyTo(request.AsSpan(i));
-        await client.SendSync(request);
+        await client.SendAsync(request);
         return await tcs.Task;
     }
 
-    private void OnMessage(byte[] data)
+    private void DataReceived(byte[] data)
     {
         var i = data[0];
         var cts = tcss[i];

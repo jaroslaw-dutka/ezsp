@@ -3,5 +3,5 @@
 internal class AshDataSendTask
 {
     public byte[] Data { get; set; }
-    public TaskCompletionSource<byte[]> Tcs { get; set; }
+    public TaskCompletionSource Tcs { get; set; }
 }
