@@ -1,6 +1,5 @@
 ﻿using System.Buffers.Binary;
 using Ezsp.Ash;
-using Ezsp.Utils;
 
 namespace Ezsp;
 
@@ -45,9 +44,9 @@ public class EzspClient
 
     public async Task<TResult> SendAsync<TRequest, TResult>(EzspCommand cmd, TRequest request) where TRequest : struct where TResult : struct
     {
-        var requestBytes = StructConverter.StructToBytes(request);
+        var requestBytes = EzspSerializer.Serialize(request);
         var responseBytes = await SendAsync(cmd, requestBytes);
-        return StructConverter.BytesToStruct<TResult>(responseBytes.Span.ToArray());
+        return EzspSerializer.Deserialize<TResult>(responseBytes.Span.ToArray());
     }
 
     public async Task<ReadOnlyMemory<byte>> SendAsync(EzspCommand cmd, params byte[] data)
