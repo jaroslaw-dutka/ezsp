@@ -1,6 +1,6 @@
 ﻿using System.Text;
 
-namespace Ezsp.Ash;
+namespace EzspLib.Ash;
 
 public class AshFrame
 {

@@ -1,4 +1,4 @@
-﻿namespace Ezsp.Utils;
+﻿namespace EzspLib.Utils;
 
 public class Crc16
 {

@@ -1,6 +1,7 @@
 ﻿using System.Net.Sockets;
-using Ezsp;
-using Ezsp.Ember;
+using EzspLib;
+using EzspLib.Ember;
+using EzspLib.Model;
 
 var tcp = new TcpClient();
 tcp.Connect("192.168.1.40", 8888);

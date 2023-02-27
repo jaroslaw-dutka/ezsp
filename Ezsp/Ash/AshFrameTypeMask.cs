@@ -1,4 +1,4 @@
-﻿namespace Ezsp.Ash;
+﻿namespace EzspLib.Ash;
 
 public enum AshFrameTypeMask : byte
 {

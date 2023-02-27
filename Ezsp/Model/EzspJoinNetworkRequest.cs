@@ -1,7 +1,7 @@
 ﻿using System.Runtime.InteropServices;
-using Ezsp.Ember;
+using EzspLib.Ember;
 
-namespace Ezsp;
+namespace EzspLib.Model;
 
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public struct EzspJoinNetworkRequest

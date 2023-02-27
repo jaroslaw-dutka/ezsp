@@ -1,7 +1,8 @@
 ﻿using System.Buffers.Binary;
-using Ezsp.Ash;
+using EzspLib.Ash;
+using EzspLib.Model;
 
-namespace Ezsp;
+namespace EzspLib;
 
 public class EzspClient
 {
@@ -76,7 +77,7 @@ public class EzspClient
         {
             request[i++] = (byte)cmd;
         }
-  
+
         data.CopyTo(request.AsSpan(i));
         await client.SendAsync(request);
         return await tcs.Task;

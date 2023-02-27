@@ -1,6 +1,6 @@
 ﻿using System.Runtime.InteropServices;
 
-namespace Ezsp.Ember;
+namespace EzspLib.Ember;
 
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public struct EmberNodeId

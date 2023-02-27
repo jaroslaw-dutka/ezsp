@@ -1,4 +1,4 @@
-﻿namespace Ezsp.Ember;
+﻿namespace EzspLib.Ember;
 
 public enum EmberNodeType : byte
 {

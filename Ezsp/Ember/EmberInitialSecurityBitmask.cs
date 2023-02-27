@@ -1,4 +1,4 @@
-﻿namespace Ezsp.Ember;
+﻿namespace EzspLib.Ember;
 
 [Flags]
 public enum EmberInitialSecurityBitmask: ushort

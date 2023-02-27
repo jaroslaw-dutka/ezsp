@@ -1,7 +1,7 @@
 ﻿using System.Collections.Concurrent;
-using Ezsp.Utils;
+using EzspLib.Utils;
 
-namespace Ezsp.Ash;
+namespace EzspLib.Ash;
 
 public class AshClient
 {
