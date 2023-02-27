@@ -1,9 +1,8 @@
 ﻿using System.Runtime.InteropServices;
 
-namespace EzspLib.Ember;
+namespace EzspLib.Model;
 
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
-public struct EmberNodeId
+public struct EzspRequest
 {
-    public ushort address;
 }

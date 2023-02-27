@@ -31,6 +31,8 @@ await client.ConnectAsync(CancellationToken.None);
 // await client.ConnectAsync(CancellationToken.None);
 // await client.SendAsync(EzspCommand.Echo, 3, 1, 2, 3);
 
+var beacon = await client.SendAsync<EzspRequest, EzspGetFirstBeaconResponse>(EzspCommand.GetFirstBeacon, new EzspRequest());
+
 var response1 = await client.SendAsync<EzspSetInitialSecurityStateRequest, EzspResponse>(EzspCommand.SetInitialSecurityState, new EzspSetInitialSecurityStateRequest
 {
     state = new EmberInitialSecurityState
@@ -44,19 +46,18 @@ var response2 = await client.SendAsync<EzspJoinNetworkRequest, EzspResponse>(Ezs
     nodeType = EmberNodeType.EMBER_ROUTER,
     parameters = new EmberNetworkParameters
     {
-        extendedPanId = 0x00124B0029DDECFB,
+        //extendedPanId = 0x00124B0029DDECFB,
+        extendedPanId = 0xDDDDDDDDDDDDDDDD,
         panId = 0x1A62,
-        radioTxPower = 0x11,
-        radioChannel = 0x0B,
+        radioTxPower = 5,
+        radioChannel = 11,
         joinMethod = EmberJoinMethod.EMBER_USE_MAC_ASSOCIATION,
-        nwkManagerId = new EmberNodeId
-        {
-            address = 0
-        },
-        nwkUpdateId = 0x00,
-        channels =  0x00000000,
+        nwkManagerId = 0,
+        nwkUpdateId = 0,
+        channels = 0x07FFF800
     }
 });
+
 //
 // var response2 = await client.SendAsync(EzspCommand.JoinNetwork, new byte[]
 // {

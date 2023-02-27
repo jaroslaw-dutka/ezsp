@@ -10,7 +10,7 @@ public struct EmberNetworkParameters
     public byte radioTxPower;
     public byte radioChannel;
     public EmberJoinMethod joinMethod;
-    public EmberNodeId nwkManagerId;
+    public ushort nwkManagerId;
     public byte nwkUpdateId;
     public uint channels;
 }
