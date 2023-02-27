@@ -27,14 +27,15 @@ public class AshChannel
     {
         await DisconnectAsync(cancellationToken);
 
-        await writer.DiscardAsync(cancellationToken);
+        await writer.WriteDiscardAsync(cancellationToken);
         await writer.WriteResetAsync(cancellationToken);
 
         var frame = await reader.ReadAsync(cancellationToken);
-        while (frame?.Control.Type != AshFrameType.Rstack) 
+        while (!frame.IsValid || frame.Control.Type != AshFrameType.ResetAck) 
             frame = await reader.ReadAsync(cancellationToken);
 
         cts = new CancellationTokenSource();
+
         Task.Run(async () => await SendLoop(cts.Token), cts.Token);
         Task.Run(async () => await ReadLoop(cts.Token), cts.Token);
     }
@@ -83,7 +84,7 @@ public class AshChannel
             }
             else
             {
-                await writer.WriteDataAsync(outgoingFrame, incomingFrame, item.Data, cancellationToken);
+                await writer.WriteDataAsync(outgoingFrame, incomingFrame, false, item.Data, cancellationToken);
                 outgoingFrame = outgoingFrame.IncMod8();
                 item.Tcs.SetResult();
             }

@@ -1,22 +1,23 @@
-﻿using System.Text;
-
-namespace EzspLib.Ash;
+﻿namespace EzspLib.Ash;
 
 public class AshFrame
 {
-    public AshControlByte Control { get; set; }
-    public byte[]? Data { get; set; }
+    public AshControlByte Control { get; }
+    public byte[] Data { get; }
+    public AshFrameError? Error { get; }
 
-    public override string ToString()
+    public bool IsValid => Error is null;
+
+    public AshFrame(AshControlByte control, byte[] data, AshFrameError? error = null)
     {
-        var sb = new StringBuilder();
+        Control = control;
+        Data = data;
+        Error = error;
+    }
 
-        sb.AppendLine($"Ctrl: {Control.ToString()}");
-        if (Data is not null)
-            sb.AppendLine($"Data: {BitConverter.ToString(Data).Replace("-", " ")}");
-        else
-            sb.AppendLine("Data: EMPTY");
-
-        return sb.ToString();
+    public static AshFrame Invalid(AshFrameError error)
+    {
+        AshControlByte.TryParse(0x00, out var control);
+        return new AshFrame(control, Array.Empty<byte>(), error);
     }
 }

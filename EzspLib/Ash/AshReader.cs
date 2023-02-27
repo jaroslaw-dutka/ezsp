@@ -5,75 +5,78 @@ namespace EzspLib.Ash;
 
 public class AshReader
 {
-    private readonly byte escapeBit = 0x20;
-    private readonly bool verbose;
-    private readonly ManualResetEventSlim transmissionEnabled = new(true);
-    private readonly byte[] readBuffer;
+    private const byte EscapeBit = 0x20;
+
     private readonly Stream stream;
+    private readonly bool verbose;
+    private readonly byte[] buffer;
 
     public AshReader(Stream stream, int bufferSize = 256, bool verbose = false)
     {
         this.stream = stream;
         this.verbose = verbose;
-        readBuffer = new byte[bufferSize];
+        buffer = new byte[bufferSize];
     }
 
-    public async Task<AshFrame?> ReadAsync(CancellationToken cancellationToken)
+    public async Task<AshFrame> ReadAsync(CancellationToken cancellationToken)
     {
-        var length = await ReadFrameAsync(readBuffer, cancellationToken);
+        var length = await ReadFrameAsync(cancellationToken);
+
         if (length < 0)
-            return null;
+            return AshFrame.Invalid(AshFrameError.EndOfStream);
 
-        if (!AshControlByte.TryParse(readBuffer[0], out var ctrl))
-            return null;
+        if (length > buffer.Length)
+            return AshFrame.Invalid(AshFrameError.BufferOverflow);
 
-        var frame = new AshFrame
-        {
-            Control = ctrl,
-            Data = new byte[length - 3]
-        };
+        if (!AshControlByte.TryParse(buffer[0], out var ctrl))
+            return AshFrame.Invalid(AshFrameError.InvalidControl);
 
-        readBuffer.AsSpan(1, length - 3).CopyTo(frame.Data);
+        var data = new byte[length - 3];
 
-        var computedCrc = Crc16.CcittFalse(readBuffer.AsSpan(0, length - 2));
-        var receivedCrc = BinaryPrimitives.ReadUInt16BigEndian(readBuffer.AsSpan(length - 2, 2));
+        buffer.AsSpan(1, length - 3).CopyTo(data);
 
+        var computedCrc = Crc16.CcittFalse(buffer.AsSpan(0, length - 2));
+        var receivedCrc = BinaryPrimitives.ReadUInt16BigEndian(buffer.AsSpan(length - 2, 2));
         if (computedCrc != receivedCrc)
-            return null;
+            return AshFrame.Invalid(AshFrameError.InvalidCrc);
 
-        switch (frame.Control.Type)
+        switch (ctrl.Type)
         {
             case AshFrameType.Data:
-                if (frame.Data is null || !frame.Data.Length.IsBetween(3, 128))
-                    return null;
+                if (!data.Length.IsBetween(3, 128))
+                    return AshFrame.Invalid(AshFrameError.InvalidSize);
                 break;
             case AshFrameType.Ack:
             case AshFrameType.Nak:
-            case AshFrameType.Rst:
-                if (frame.Data is not null && frame.Data.Length > 0)
-                    return null;
+            case AshFrameType.Reset:
+                if (data.Length > 0)
+                    return AshFrame.Invalid(AshFrameError.InvalidSize);
                 break;
-            case AshFrameType.Rstack:
+            case AshFrameType.ResetAck:
             case AshFrameType.Error:
-                if (frame.Data is null || frame.Data.Length != 2)
-                    return null;
+                if (data.Length != 2)
+                    return AshFrame.Invalid(AshFrameError.InvalidSize);
                 break;
+            default:
+                throw new ArgumentOutOfRangeException();
         }
 
-        if (frame.Control.Type == AshFrameType.Data)
-            AshPseudorandom.Xor(frame.Data);
+        if (ctrl.Type == AshFrameType.Data)
+            AshRandom.Xor(data);
 
         if (verbose)
         {
             Console.ForegroundColor = ConsoleColor.DarkYellow;
             Console.WriteLine("In " + DateTime.Now.ToString("O"));
-            Console.WriteLine(frame);
+            Console.WriteLine($"Ctrl: {ctrl}");
+            Console.WriteLine($"Data: {BitConverter.ToString(data).Replace("-", " ")}");
+            Console.WriteLine();
         }
 
-        return frame;
+        return new AshFrame(ctrl, data);
     }
 
-    private async Task<int> ReadFrameAsync(byte[] buffer, CancellationToken cancellationToken)
+    private async Task<int> ReadFrameAsync(CancellationToken cancellationToken)
     {
         var index = 0;
         var endOfFrame = false;
@@ -88,10 +91,8 @@ public class AshReader
             switch ((AshReservedByte)b)
             {
                 case AshReservedByte.XON:
-                    transmissionEnabled.Set();
-                    break;
                 case AshReservedByte.XOFF:
-                    transmissionEnabled.Reset();
+                    // TODO: handle software transmission control
                     continue;
                 case AshReservedByte.Substitute:
                     index = 0;
@@ -113,7 +114,7 @@ public class AshReader
 
             if (escape)
             {
-                b ^= escapeBit;
+                b ^= EscapeBit;
                 escape = false;
             }
 

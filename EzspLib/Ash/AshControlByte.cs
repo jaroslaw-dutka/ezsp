@@ -4,11 +4,18 @@ namespace EzspLib.Ash;
 
 public class AshControlByte
 {
+    private const byte AckMask = 0xE0;
+    private const byte DataMask = 0x80;
+
     public AshFrameType Type { get; set; }
     public byte FrameNumber { get; set; }        // Data
     public bool Retransmission { get; set; }     // Data
     public byte AckNumber { get; set; }          // Data, Ack, Nak
     public bool NotReady { get; set; }           // Ack, Nak
+
+    private AshControlByte()
+    {
+    }
 
     public static bool TryParse(byte b, out AshControlByte ctrl)
     {
@@ -16,25 +23,25 @@ public class AshControlByte
         switch (b)
         {
             case (byte)AshFrameType.Error:
-            case (byte)AshFrameType.Rstack:
-            case (byte)AshFrameType.Rst:
+            case (byte)AshFrameType.ResetAck:
+            case (byte)AshFrameType.Reset:
                 ctrl.Type = (AshFrameType)b;
                 break;
             default:
             {
-                if ((b & (byte)AshFrameTypeMask.Ack) == (byte)AshFrameType.Ack)
+                if ((b & AckMask) == (byte)AshFrameType.Ack)
                 {
                     ctrl.Type = AshFrameType.Ack;
                     ctrl.AckNumber = (byte)(b & 0x07);
                     ctrl.NotReady = ((b >> 3) & 0x01) == 0x01;
                 }
-                else if ((b & (byte)AshFrameTypeMask.Nak) == (byte)AshFrameType.Nak)
+                else if ((b & AckMask) == (byte)AshFrameType.Nak)
                 {
                     ctrl.Type = AshFrameType.Nak;
                     ctrl.AckNumber = (byte)(b & 0x07);
                     ctrl.NotReady = ((b >> 3) & 0x01) == 0x01;
                 }
-                else if ((b & (byte)AshFrameTypeMask.Data) == (byte)AshFrameType.Data)
+                else if ((b & DataMask) == (byte)AshFrameType.Data)
                 {
                     ctrl.Type = AshFrameType.Data;
                     ctrl.AckNumber = (byte)(b & 0x07);
@@ -50,21 +57,6 @@ public class AshControlByte
 
         return true;
     }
-
-    public static byte DataByte(bool rtx, byte frmNum, byte ackNum) => (byte)((frmNum & 0x07) << 4 | (rtx ? 0x08 : 0x00) | (ackNum & 0x07));
-    public static byte AckByte(bool notReady, byte ackNum) => (byte)((byte)AshFrameType.Ack | (notReady ? 0x08 : 0x00) | (ackNum & 0x07));
-    public static byte NakByte(bool notReady, byte ackNum) => (byte)((byte)AshFrameType.Nak | (notReady ? 0x08 : 0x00) | (ackNum & 0x07));
-
-    public byte ToByte() => Type switch
-    {
-        AshFrameType.Data => (byte)((byte)Type | (FrameNumber & 0x07) << 4 | (Retransmission ? 0x08 : 0x00) | (AckNumber & 0x07)),
-        AshFrameType.Ack => (byte)((byte)Type | (NotReady ? 0x08 : 0x00) | (AckNumber & 0x07)),
-        AshFrameType.Nak => (byte)((byte)Type | (NotReady ? 0x08 : 0x00) | (AckNumber & 0x07)),
-        AshFrameType.Rst => (byte)Type,
-        AshFrameType.Rstack => (byte)Type,
-        AshFrameType.Error => (byte)Type,
-        _ => throw new ArgumentOutOfRangeException()
-    };
 
     public override string ToString()
     {

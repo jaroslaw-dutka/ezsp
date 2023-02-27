@@ -4,7 +4,8 @@ namespace EzspLib.Ash;
 
 public class AshWriter
 {
-    private readonly byte escapeBit = 0x20;
+    private const byte EscapeBit = 0x20;
+
     private readonly byte[] reservedBytes = Enum.GetValuesAsUnderlyingType<AshReservedByte>().OfType<byte>().ToArray();
     private readonly Stream stream;
     private readonly bool verbose;
@@ -20,60 +21,59 @@ public class AshWriter
         buffer = new byte[bufferSize];
     }
 
-    public async Task DiscardAsync(CancellationToken cancellationToken)
-    {
-        await stream.WriteByteAsync((byte)AshReservedByte.Cancel, cancellationToken);
-    }
+    public async Task WriteDiscardAsync(CancellationToken cancellationToken) 
+        => await stream.WriteByteAsync((byte)AshReservedByte.Cancel, cancellationToken);
 
-    public async Task WriteAsync(AshFrame frame, CancellationToken cancellationToken)
+    public async Task WriteResetAsync(CancellationToken cancellationToken) 
+        => await WriteAsync(AshControlByteFactory.Reset(), Array.Empty<byte>(), cancellationToken);
+
+    public async Task WriteDataAsync(byte frmNumber, byte ackNumber, bool retry, byte[] data, CancellationToken cancellationToken) 
+        => await WriteAsync(AshControlByteFactory.Data(frmNumber, ackNumber, retry), data, cancellationToken);
+
+    public async Task WriteAckAsync(byte ackNumber, CancellationToken cancellationToken) 
+        => await WriteAsync(AshControlByteFactory.Ack(ackNumber, false), Array.Empty<byte>(), cancellationToken);
+
+    public async Task WriteNakAsync(byte ackNumber, CancellationToken cancellationToken) 
+        => await WriteAsync(AshControlByteFactory.Nak(ackNumber, false), Array.Empty<byte>(), cancellationToken);
+
+    private async Task WriteAsync(byte ctrl, byte[] data, CancellationToken cancellationToken)
     {
+        if (!AshControlByte.TryParse(ctrl, out var ctrlByte))
+            throw new ArgumentException("Control byte is invalid", nameof(ctrl));
+
         if (verbose)
         {
             Console.ForegroundColor = ConsoleColor.Blue;
             Console.WriteLine("Out " + DateTime.Now.ToString("O"));
-            Console.WriteLine(frame);
+            Console.WriteLine($"Ctrl: {ctrlByte}");
+            Console.WriteLine($"Data: {BitConverter.ToString(data).Replace("-", " ")}");
+            Console.WriteLine();
         }
 
-        BeginFrame(frame.Control.ToByte());
-        if (frame.Data is not null)
-            WriteData(frame.Data, frame.Control.Type == AshFrameType.Data);
-        EndFrame();
-        await stream.WriteAsync(buffer, 0, bufferIndex, cancellationToken);
-    }
-
-    private void BeginFrame(byte ctrl)
-    {
         inputIndex = 0;
         bufferIndex = 0;
         crc = 0xffff;
         WriteByte(ctrl, true, false);
-    }
-
-    private void WriteData(IEnumerable<byte> data, bool byteStuff)
-    {
-        foreach (var b in data) 
-            WriteByte(b, true, byteStuff);
-    }
-
-    private void EndFrame()
-    {
+        foreach (var b in data)
+            WriteByte(b, true, true);
         var crcBytes = BitConverter.GetBytes(crc);
         WriteByte(crcBytes[1], true, false);
         WriteByte(crcBytes[0], true, false);
         WriteByte((byte)AshReservedByte.Flag, false, false);
+        await stream.WriteAsync(buffer, 0, bufferIndex, cancellationToken);
     }
 
-    private void WriteByte(byte b, bool escape, bool byteStuff)
+    private void WriteByte(byte b, bool escape, bool stuff)
     {
-        if (byteStuff)
-            b ^= AshPseudorandom.Bytes[inputIndex++];
+        if (stuff)
+            b ^= AshRandom.Bytes[inputIndex++];
 
         crc = Crc16.CcittFalse(crc, b);
 
         if (escape && reservedBytes.Contains(b))
         {
             buffer[bufferIndex++] = (byte)AshReservedByte.Escape;
-            b ^= escapeBit;
+            b ^= EscapeBit;
         }
 
         buffer[bufferIndex++] = b;
