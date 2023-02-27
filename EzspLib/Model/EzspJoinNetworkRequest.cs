@@ -9,3 +9,8 @@ public struct EzspJoinNetworkRequest
     public EmberNodeType nodeType;
     public EmberNetworkParameters parameters;
 }
+
+public struct EzspSetInitialSecurityStateRequest
+{
+    public EmberInitialSecurityState state;
+}

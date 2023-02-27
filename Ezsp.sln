@@ -3,9 +3,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.4.33205.214
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "EzspLib", "Ezsp\EzspLib.csproj", "{2CFF1FC6-4743-4375-B705-99D34B72F363}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "EzspLib", "EzspLib\EzspLib.csproj", "{2CFF1FC6-4743-4375-B705-99D34B72F363}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EzspClientApp", "EzspClientApp\EzspClientApp.csproj", "{AFA5AC7A-38F6-46F8-ABFE-E61663D89215}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EzspClient", "EzspClient\EzspClient.csproj", "{AFA5AC7A-38F6-46F8-ABFE-E61663D89215}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

@@ -31,9 +31,12 @@ await client.ConnectAsync(CancellationToken.None);
 // await client.ConnectAsync(CancellationToken.None);
 // await client.SendAsync(EzspCommand.Echo, 3, 1, 2, 3);
 
-var response1 = await client.SendAsync<EmberInitialSecurityState, EzspResponse>(EzspCommand.SetInitialSecurityState, new EmberInitialSecurityState
+var response1 = await client.SendAsync<EzspSetInitialSecurityStateRequest, EzspResponse>(EzspCommand.SetInitialSecurityState, new EzspSetInitialSecurityStateRequest
 {
-    bitmask = EmberInitialSecurityBitmask.EMBER_STANDARD_SECURITY_MODE
+    state = new EmberInitialSecurityState
+    {
+        bitmask = EmberInitialSecurityBitmask.EMBER_STANDARD_SECURITY_MODE
+    }
 });
 
 var response2 = await client.SendAsync<EzspJoinNetworkRequest, EzspResponse>(EzspCommand.JoinNetwork, new EzspJoinNetworkRequest
