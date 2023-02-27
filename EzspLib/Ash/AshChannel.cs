@@ -96,8 +96,9 @@ public class AshChannel
         while (!cancellationToken.IsCancellationRequested)
         {
             var frame = await reader.ReadAsync(cancellationToken);
-            if (frame == null)
+            if (!frame.IsValid)
             {
+                Console.WriteLine($"Invalid frame: {frame.Error}");
                 ackPending = -1;
                 continue;
             }
@@ -107,20 +108,20 @@ public class AshChannel
 
             if (frame.Control.Type == AshFrameType.Ack)
             {
-                if (frame.Control.AckNumber != outgoingFrame)
-                    ackPending = -1;
-                else
+                if (frame.Control.AckNumber == outgoingFrame)
                     incomingFrame = frame.Control.FrameNumber.IncMod8();
+                else
+                    ackPending = -1;
             }
 
             if (frame.Control.Type == AshFrameType.Nak)
             {
-                if (frame.Control.AckNumber != outgoingFrame)
-                    ackPending = -1;
-                else
+                if (frame.Control.AckNumber == outgoingFrame)
                 {
                     // TODO: handle NAK
                 }
+                else
+                    ackPending = -1;
             }
 
             if (frame.Control.Type == AshFrameType.Data)
