@@ -1,5 +1,6 @@
 ﻿using System.Buffers.Binary;
 using Ezsp.Ash;
+using Ezsp.Utils;
 
 namespace Ezsp;
 
@@ -40,6 +41,13 @@ public class EzspClient
             if (tcs is not null)
                 tcs.SetResult(Array.Empty<byte>());
         }
+    }
+
+    public async Task<TResult> SendAsync<TRequest, TResult>(EzspCommand cmd, TRequest request) where TRequest : struct where TResult : struct
+    {
+        var requestBytes = StructConverter.StructToBytes(request);
+        var responseBytes = await SendAsync(cmd, requestBytes);
+        return StructConverter.BytesToStruct<TResult>(responseBytes.Span.ToArray());
     }
 
     public async Task<ReadOnlyMemory<byte>> SendAsync(EzspCommand cmd, params byte[] data)
