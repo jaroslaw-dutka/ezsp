@@ -62,9 +62,6 @@ if ((byte)response.status != 0x93)
     await client.SendAsync<EzspRequest, EzspResponse>(EzspCommand.LeaveNetwork, new EzspRequest());
 }
 
-var aaa = new string("ZigBeeAl");
-var bbb = new string("liance09");
-
 var securityResponse = await client.SendAsync<EzspSetInitialSecurityStateRequest, EzspResponse>(EzspCommand.SetInitialSecurityState, new EzspSetInitialSecurityStateRequest
 {
     state = new EmberInitialSecurityState
@@ -75,17 +72,12 @@ var securityResponse = await client.SendAsync<EzspSetInitialSecurityStateRequest
                    | EmberInitialSecurityBitmask.EMBER_TRUST_CENTER_GLOBAL_LINK_KEY,
         networkKey = new EmberKeyData
         {
-            // field1 = 0x00020406080a0c0e,
-            // field2 = 0x01030507090b0d0f
-            field1 = 0xffffffffffffffff,
-            field2 = 0xffffffffffffffff
+            data = Enumerable.Repeat((byte)0xFF, 16).ToArray()
         },
         preconfiguredKey = new EmberKeyData
         {
-            field1 = BitConverter.ToUInt64(Encoding.ASCII.GetBytes(aaa)),
-            field2 = BitConverter.ToUInt64(Encoding.ASCII.GetBytes(bbb)),
+            data = "ZigBeeAlliance09"u8.ToArray()
         }
-        // preconfiguredTrustCenterEui64 = 
     }
 });
 
@@ -107,10 +99,10 @@ var securityResponse = await client.SendAsync<EzspSetInitialSecurityStateRequest
 
 var joinResponse = await client.SendAsync<EzspJoinNetworkRequest, EzspResponse>(EzspCommand.JoinNetwork, new EzspJoinNetworkRequest
 {
-    nodeType = EmberNodeType.EMBER_END_DEVICE,
+    nodeType = EmberNodeType.EMBER_ROUTER,
     parameters = new EmberNetworkParameters
     {
-        extendedPanId = 0x00124B0029DDECFB,
+        extendedPanId = BitConverter.GetBytes(0x00124B0029DDECFB),
         panId = 0x1A62,
         radioTxPower = 8,
         radioChannel = 11,

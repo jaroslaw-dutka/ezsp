@@ -13,7 +13,8 @@ public struct EmberBeaconData
     public sbyte power;
     public sbyte parentPriority;
     public ushort panId;
-    public ulong extendedPanId;
+    [MarshalAs(UnmanagedType.ByValArray, SizeConst = 8)]
+    public byte[] extendedPanId;
     public ushort sender;
     public bool enhanced;
     public bool permitJoin;

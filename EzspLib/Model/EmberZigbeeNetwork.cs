@@ -7,7 +7,8 @@ public struct EmberZigbeeNetwork
 {
     public byte channel;
     public ushort panId;
-    public ulong extendedPanId;
+    [MarshalAs(UnmanagedType.ByValArray, SizeConst = 8)]
+    public byte[] extendedPanId;
     public bool allowingJoin;
     public byte stackProfile;
     public byte nwkUpdateId;

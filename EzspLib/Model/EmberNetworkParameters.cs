@@ -5,7 +5,8 @@ namespace EzspLib.Model;
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public struct EmberNetworkParameters
 {
-    public ulong extendedPanId;
+    [MarshalAs(UnmanagedType.ByValArray, SizeConst = 8)]
+    public byte[] extendedPanId;
     public ushort panId;
     public byte radioTxPower;
     public byte radioChannel;
