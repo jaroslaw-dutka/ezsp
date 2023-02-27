@@ -3,8 +3,8 @@
 namespace EzspLib.Model;
 
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
-public struct EzspGetFirstBeaconResponse
+public struct EzspGetConfigurationValueResponse
 {
-    public EmberStatus status;
-    public EmberBeaconIterator iterator;
+    public EzspStatus status;
+    public ushort value;
 }

@@ -1,4 +1,6 @@
-﻿namespace EzspLib.Ash;
+﻿using System.Text;
+
+namespace EzspLib.Ash;
 
 public static class AshPseudorandom
 {
@@ -15,6 +17,13 @@ public static class AshPseudorandom
             if ((Bytes[i - 1] & 1) == 1)
                 Bytes[i] = (byte)(Bytes[i] ^ 0xB8);
         }
+
+        var sb = new StringBuilder();
+        foreach (var b in Bytes)
+        {
+            sb.Append(b.ToString("X"));
+        }
+        var aa = sb.ToString();
     }
 
     public static void Xor(Span<byte> data)

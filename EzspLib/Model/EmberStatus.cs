@@ -1,6 +1,6 @@
-﻿namespace EzspLib.Ember;
+﻿namespace EzspLib.Model;
 
-public enum EmberStatus: byte
+public enum EmberStatus : byte
 {
     EMBER_SUCCESS = 0x00,
     EMBER_ERR_FATAL = 0x01,

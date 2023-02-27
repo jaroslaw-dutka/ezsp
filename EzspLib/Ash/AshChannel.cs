@@ -3,7 +3,7 @@ using EzspLib.Utils;
 
 namespace EzspLib.Ash;
 
-public class AshClient
+public class AshChannel
 {
     private readonly ConcurrentQueue<AshDataSendTask> sendQueue = new();
 
@@ -17,7 +17,7 @@ public class AshClient
 
     public Action<byte[]>? DataReceived { get; set; }
 
-    public AshClient(Stream stream)
+    public AshChannel(Stream stream)
     {
         reader = new AshReader(stream, 256, true);
         writer = new AshWriter(stream, 256, true);

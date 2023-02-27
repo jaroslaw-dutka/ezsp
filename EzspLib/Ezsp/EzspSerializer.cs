@@ -1,7 +1,7 @@
 ﻿using System.Buffers.Binary;
 using System.Runtime.InteropServices;
 
-namespace EzspLib;
+namespace EzspLib.Ezsp;
 
 public class EzspSerializer
 {
@@ -33,17 +33,17 @@ public class EzspSerializer
             else if (fieldType == typeof(sbyte))
                 buffer[0] = (byte)value;
             else if (fieldType == typeof(short))
-                BinaryPrimitives.WriteInt16BigEndian(buffer, (short)value);
+                BinaryPrimitives.WriteInt16LittleEndian(buffer, (short)value);
             else if (fieldType == typeof(ushort))
-                BinaryPrimitives.WriteUInt16BigEndian(buffer, (ushort)value);
+                BinaryPrimitives.WriteUInt16LittleEndian(buffer, (ushort)value);
             else if (fieldType == typeof(int))
-                BinaryPrimitives.WriteInt32BigEndian(buffer, (int)value);
+                BinaryPrimitives.WriteInt32LittleEndian(buffer, (int)value);
             else if (fieldType == typeof(uint))
-                BinaryPrimitives.WriteUInt32BigEndian(buffer, (uint)value);
+                BinaryPrimitives.WriteUInt32LittleEndian(buffer, (uint)value);
             else if (fieldType == typeof(long))
-                BinaryPrimitives.WriteInt64BigEndian(buffer, (long)value);
+                BinaryPrimitives.WriteInt64LittleEndian(buffer, (long)value);
             else if (fieldType == typeof(ulong))
-                BinaryPrimitives.WriteUInt64BigEndian(buffer, (ulong)value);
+                BinaryPrimitives.WriteUInt64LittleEndian(buffer, (ulong)value);
             else if (fieldType is { IsAnsiClass: true, IsValueType: true })
                 SerializeInternal(value, buffer);
             else
@@ -69,17 +69,17 @@ public class EzspSerializer
             else if (fieldType == typeof(sbyte))
                 info.SetValue(obj, buffer[0]);
             else if (fieldType == typeof(short))
-                info.SetValue(obj, BinaryPrimitives.ReadInt16BigEndian(buffer));
+                info.SetValue(obj, BinaryPrimitives.ReadInt16LittleEndian(buffer));
             else if (fieldType == typeof(ushort))
-                info.SetValue(obj, BinaryPrimitives.ReadUInt16BigEndian(buffer));
+                info.SetValue(obj, BinaryPrimitives.ReadUInt16LittleEndian(buffer));
             else if (fieldType == typeof(int))
-                info.SetValue(obj, BinaryPrimitives.ReadInt32BigEndian(buffer));
+                info.SetValue(obj, BinaryPrimitives.ReadInt32LittleEndian(buffer));
             else if (fieldType == typeof(uint))
-                info.SetValue(obj, BinaryPrimitives.ReadUInt32BigEndian(buffer));
+                info.SetValue(obj, BinaryPrimitives.ReadUInt32LittleEndian(buffer));
             else if (fieldType == typeof(long))
-                info.SetValue(obj, BinaryPrimitives.ReadInt64BigEndian(buffer));
+                info.SetValue(obj, BinaryPrimitives.ReadInt64LittleEndian(buffer));
             else if (fieldType == typeof(ulong))
-                info.SetValue(obj, BinaryPrimitives.ReadUInt64BigEndian(buffer));
+                info.SetValue(obj, BinaryPrimitives.ReadUInt64LittleEndian(buffer));
             else if (fieldType is { IsAnsiClass: true, IsValueType: true })
                 info.SetValue(obj, DeserializeInternal(fieldType, buffer));
             else

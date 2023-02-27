@@ -1,4 +1,4 @@
-﻿namespace EzspLib.Ember;
+﻿namespace EzspLib.Model;
 
 public enum EmberJoinMethod : byte
 {

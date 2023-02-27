@@ -1,6 +1,6 @@
 ﻿using System.Runtime.InteropServices;
 
-namespace EzspLib.Ember;
+namespace EzspLib.Model;
 
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public struct EmberInitialSecurityState

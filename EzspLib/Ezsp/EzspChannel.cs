@@ -2,18 +2,18 @@
 using EzspLib.Ash;
 using EzspLib.Model;
 
-namespace EzspLib;
+namespace EzspLib.Ezsp;
 
-public class EzspClient
+public class EzspChannel
 {
-    private readonly AshClient client;
+    private readonly AshChannel channel;
     private byte msgIndex;
     private byte version;
     private TaskCompletionSource<ReadOnlyMemory<byte>>?[] tcss = new TaskCompletionSource<ReadOnlyMemory<byte>>[256];
 
-    public EzspClient(Stream stream)
+    public EzspChannel(Stream stream)
     {
-        client = new AshClient(stream)
+        channel = new AshChannel(stream)
         {
             DataReceived = DataReceived
         };
@@ -22,7 +22,7 @@ public class EzspClient
     public async Task ConnectAsync(CancellationToken cancellationToken)
     {
         await DisconnectAsync(cancellationToken);
-        await client.ConnectAsync(cancellationToken);
+        await channel.ConnectAsync(cancellationToken);
         var response = await SendAsync(EzspCommand.Version, 4);
         version = response.Span[0];
         await SendAsync(EzspCommand.Version, version);
@@ -30,7 +30,7 @@ public class EzspClient
 
     public async Task DisconnectAsync(CancellationToken cancellationToken)
     {
-        await client.DisconnectAsync(cancellationToken);
+        await channel.DisconnectAsync(cancellationToken);
 
         msgIndex = 0;
         version = 0;
@@ -79,7 +79,7 @@ public class EzspClient
         }
 
         data.CopyTo(request.AsSpan(i));
-        await client.SendAsync(request);
+        await channel.SendAsync(request);
         return await tcs.Task;
     }
 

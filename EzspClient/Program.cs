@@ -1,11 +1,11 @@
 ﻿using System.Net.Sockets;
-using EzspLib;
-using EzspLib.Ember;
+using System.Text;
+using EzspLib.Ezsp;
 using EzspLib.Model;
 
 var tcp = new TcpClient();
 tcp.Connect("192.168.1.40", 8888);
-var client = new EzspClient(tcp.GetStream());
+var client = new EzspChannel(tcp.GetStream());
 
 await client.ConnectAsync(CancellationToken.None);
 
@@ -31,30 +31,94 @@ await client.ConnectAsync(CancellationToken.None);
 // await client.ConnectAsync(CancellationToken.None);
 // await client.SendAsync(EzspCommand.Echo, 3, 1, 2, 3);
 
-var beacon = await client.SendAsync<EzspRequest, EzspGetFirstBeaconResponse>(EzspCommand.GetFirstBeacon, new EzspRequest());
+// var status = await client.SendAsync<EzspRequest, EzspResponse>(EzspCommand.NetworkState, new EzspRequest());
 
-var response1 = await client.SendAsync<EzspSetInitialSecurityStateRequest, EzspResponse>(EzspCommand.SetInitialSecurityState, new EzspSetInitialSecurityStateRequest
+await client.SendAsync<EzspSetConfigurationValueRequest, EzspResponse>(EzspCommand.SetConfigurationValue, new EzspSetConfigurationValueRequest()
+{
+    configId = EzspConfigId.EZSP_CONFIG_STACK_PROFILE,
+    value = 2
+});
+// await client.SendAsync<EzspSetConfigurationValueRequest, EzspResponse>(EzspCommand.SetConfigurationValue, new EzspSetConfigurationValueRequest()
+// {
+//     configId = EzspConfigId.EZSP_CONFIG_SECURITY_LEVEL,
+//     value = 5
+// });
+// await client.SendAsync<EzspSetConfigurationValueRequest, EzspResponse>(EzspCommand.SetConfigurationValue, new EzspSetConfigurationValueRequest()
+// {
+//     configId = EzspConfigId.EZSP_CONFIG_SUPPORTED_NETWORKS,
+//     value = 1
+// });
+// await client.SendAsync<EzspSetConfigurationValueRequest, EzspResponse>(EzspCommand.SetConfigurationValue, new EzspSetConfigurationValueRequest()
+// {
+//     configId = EzspConfigId.EZSP_CONFIG_PACKET_BUFFER_COUNT,
+//     value = 64
+// });
+
+
+var response = await client.SendAsync<EzspRequest, EzspResponse>(EzspCommand.NetworkInit, new EzspRequest());
+
+if ((byte)response.status != 0x93)
+{
+    await client.SendAsync<EzspRequest, EzspResponse>(EzspCommand.LeaveNetwork, new EzspRequest());
+}
+
+var aaa = new string("ZigBeeAl");
+var bbb = new string("liance09");
+
+var securityResponse = await client.SendAsync<EzspSetInitialSecurityStateRequest, EzspResponse>(EzspCommand.SetInitialSecurityState, new EzspSetInitialSecurityStateRequest
 {
     state = new EmberInitialSecurityState
     {
-        bitmask = EmberInitialSecurityBitmask.EMBER_STANDARD_SECURITY_MODE
+        bitmask = EmberInitialSecurityBitmask.EMBER_HAVE_PRECONFIGURED_KEY
+                   | EmberInitialSecurityBitmask.EMBER_HAVE_NETWORK_KEY
+                   | EmberInitialSecurityBitmask.EMBER_REQUIRE_ENCRYPTED_KEY
+                   | EmberInitialSecurityBitmask.EMBER_TRUST_CENTER_GLOBAL_LINK_KEY,
+        networkKey = new EmberKeyData
+        {
+            // field1 = 0x00020406080a0c0e,
+            // field2 = 0x01030507090b0d0f
+            field1 = 0xffffffffffffffff,
+            field2 = 0xffffffffffffffff
+        },
+        preconfiguredKey = new EmberKeyData
+        {
+            field1 = BitConverter.ToUInt64(Encoding.ASCII.GetBytes(aaa)),
+            field2 = BitConverter.ToUInt64(Encoding.ASCII.GetBytes(bbb)),
+        }
+        // preconfiguredTrustCenterEui64 = 
     }
 });
 
-var response2 = await client.SendAsync<EzspJoinNetworkRequest, EzspResponse>(EzspCommand.JoinNetwork, new EzspJoinNetworkRequest
+//
+// await client.SendAsync<EzspStartScanRequest, EzspResponse>(EzspCommand.StartScan, new EzspStartScanRequest
+// {
+//     scanType = EzspNetworkScanType.EZSP_ACTIVE_SCAN,
+//     channelMask = 0x07FFF800,
+//     duration = 5
+// });
+// await Task.Delay(5000);
+// await client.SendAsync<EzspRequest, EzspResponse>(EzspCommand.StopScan, new EzspRequest());
+
+// await client.SendAsync<EzspRequest, EzspResponse>(EzspCommand.GetNumStoredBeacons, new EzspRequest());
+// return;
+
+//
+// var beaconResponse = await client.SendAsync<EzspRequest, EzspGetFirstBeaconResponse>(EzspCommand.GetFirstBeacon, new EzspRequest());
+
+var joinResponse = await client.SendAsync<EzspJoinNetworkRequest, EzspResponse>(EzspCommand.JoinNetwork, new EzspJoinNetworkRequest
 {
-    nodeType = EmberNodeType.EMBER_ROUTER,
+    nodeType = EmberNodeType.EMBER_END_DEVICE,
     parameters = new EmberNetworkParameters
     {
-        //extendedPanId = 0x00124B0029DDECFB,
-        extendedPanId = 0xDDDDDDDDDDDDDDDD,
+        extendedPanId = 0x00124B0029DDECFB,
         panId = 0x1A62,
-        radioTxPower = 5,
+        radioTxPower = 8,
         radioChannel = 11,
         joinMethod = EmberJoinMethod.EMBER_USE_MAC_ASSOCIATION,
         nwkManagerId = 0,
         nwkUpdateId = 0,
-        channels = 0x07FFF800
+        //channels = 0x07FFF800
+        channels = 0
     }
 });
 

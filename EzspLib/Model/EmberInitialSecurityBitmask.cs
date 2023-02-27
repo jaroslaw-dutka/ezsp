@@ -1,7 +1,7 @@
-﻿namespace EzspLib.Ember;
+﻿namespace EzspLib.Model;
 
 [Flags]
-public enum EmberInitialSecurityBitmask: ushort
+public enum EmberInitialSecurityBitmask : ushort
 {
     EMBER_STANDARD_SECURITY_MODE = 0x0000,
     EMBER_DISTRIBUTED_TRUST_CENTER_MODE = 0x0002,
