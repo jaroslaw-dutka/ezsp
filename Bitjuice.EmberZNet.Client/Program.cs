@@ -1,5 +1,6 @@
 ﻿using System.Net.Sockets;
 using Bitjuice.EmberZNet;
+using Bitjuice.EmberZNet.Api;
 using Bitjuice.EmberZNet.Model;
 
 var tcp = new TcpClient();
@@ -27,6 +28,27 @@ await ezsp.SetConfigurationValueAsync(EzspConfigId.StackProfile, version.StackTy
 await ezsp.SetConfigurationValueAsync(EzspConfigId.SecurityLevel, 5);
 await ezsp.SetConfigurationValueAsync(EzspConfigId.SupportedNetworks, 1);
 await ezsp.SetConfigurationValueAsync(EzspConfigId.PacketBufferCount, 64);
+
+var zzz = await channel.SendAsync<EzspAddEndpointRequest, EzspAddEndpointResponse>(EzspCommand.AddEndpoint, new EzspAddEndpointRequest()
+{
+    Endpoint = 1,
+    ProfileId = 0,
+    DeviceId = 0,
+    InputClusterCount = 1,
+    InputClusterList = new ushort[]{ 1 },
+    OutputClusterCount = 1,
+    OutputClusterList = new ushort[] { 1 }
+});
+var xxx = await channel.SendAsync<EzspAddEndpointRequest, EzspAddEndpointResponse>(EzspCommand.AddEndpoint, new EzspAddEndpointRequest()
+{
+    Endpoint = 2,
+    ProfileId = 0,
+    DeviceId = 0,
+    InputClusterCount = 1,
+    InputClusterList = new ushort[] { 1 },
+    OutputClusterCount = 1,
+    OutputClusterList = new ushort[] { 1 }
+});
 
 var response = await ezsp.NetworkInitAsync();
 if ((byte)response.Status != 0x93) 
