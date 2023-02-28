@@ -1,4 +1,4 @@
-﻿namespace EzspLib.Model;
+﻿namespace EzspLib;
 
 public enum EzspCommand : ushort
 {

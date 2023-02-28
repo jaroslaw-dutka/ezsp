@@ -1,6 +1,5 @@
 ﻿using System.Buffers.Binary;
 using EzspLib.Ash;
-using EzspLib.Model;
 
 namespace EzspLib.Ezsp;
 

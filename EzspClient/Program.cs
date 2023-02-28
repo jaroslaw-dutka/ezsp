@@ -2,6 +2,7 @@
 using EzspLib;
 using EzspLib.Ezsp;
 using EzspLib.Model;
+using EzspLib.Requests;
 
 var tcp = new TcpClient();
 tcp.Connect("192.168.1.40", 8888);

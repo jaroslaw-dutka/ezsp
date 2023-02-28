@@ -1,8 +1,8 @@
 ﻿using BinarySerialization;
 
-namespace EzspLib.Model;
+namespace EzspLib.Requests;
 
-public class EzspEchoRequest
+public class EzspEchoResponse
 {
     [FieldOrder(0)]
     public byte Length { get; set; }

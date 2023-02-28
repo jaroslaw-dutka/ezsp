@@ -1,6 +1,7 @@
 ﻿using BinarySerialization;
+using EzspLib.Model;
 
-namespace EzspLib.Model;
+namespace EzspLib.Requests;
 
 public class EzspGetFirstBeaconResponse
 {
