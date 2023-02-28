@@ -35,7 +35,7 @@ public class EzspClient
 
     public async Task<EzspGetConfigurationValueResponse> GetConfigurationValueAsync(EzspConfigId configId)
     {
-        return await Channel.SendAsync<EzspGetConfigurationValueRequest, EzspGetConfigurationValueResponse> (EzspCommand.SetConfigurationValue, new EzspGetConfigurationValueRequest { configId = configId });
+        return await Channel.SendAsync<EzspGetConfigurationValueRequest, EzspGetConfigurationValueResponse> (EzspCommand.SetConfigurationValue, new EzspGetConfigurationValueRequest { ConfigId = configId });
     }
 
     public async Task<EzspResponse> SetInitialSecurityStateAsync(EmberInitialSecurityState state)

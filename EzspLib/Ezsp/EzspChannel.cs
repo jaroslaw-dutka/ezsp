@@ -10,6 +10,8 @@ public class EzspChannel
     private byte version;
     private TaskCompletionSource<ReadOnlyMemory<byte>>?[] tcss = new TaskCompletionSource<ReadOnlyMemory<byte>>[256];
 
+    public Action<byte[]>? CallbackReceived { get; set; }
+
     public EzspChannel(Stream stream)
     {
         channel = new AshChannel(stream)
@@ -94,6 +96,9 @@ public class EzspChannel
         var cts = tcss[i];
         tcss[i] = null;
         var memory = data.AsMemory(version > 4 ? 5 : 3);
-        cts?.SetResult(memory);
+        if (cts is not null)
+            cts.SetResult(memory);
+        else
+            CallbackReceived?.Invoke(data);
     }
 }

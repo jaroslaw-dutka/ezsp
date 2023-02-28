@@ -7,6 +7,13 @@ var tcp = new TcpClient();
 tcp.Connect("192.168.1.40", 8888);
 var channel = new EzspChannel(tcp.GetStream());
 await channel.ConnectAsync(CancellationToken.None);
+
+channel.CallbackReceived += bytes =>
+{
+    Console.WriteLine("Callback");
+    var aa = 2;
+};
+
 var ezsp = new EzspClient(channel);
 
 // await ezsp.EchoAsync("test");

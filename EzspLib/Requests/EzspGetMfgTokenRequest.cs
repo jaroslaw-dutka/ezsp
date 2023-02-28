@@ -3,8 +3,8 @@ using EzspLib.Model;
 
 namespace EzspLib.Requests;
 
-public class EzspGetConfigurationValueRequest
+public class EzspGetMfgTokenRequest
 {
     [FieldOrder(0)]
-    public EzspConfigId ConfigId { get; set; }
+    public EzspMfgTokenId TokenId { get; set; }
 }

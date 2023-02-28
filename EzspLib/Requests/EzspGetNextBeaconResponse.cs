@@ -1,11 +1,13 @@
-﻿using System.Runtime.InteropServices;
+﻿using BinarySerialization;
 using EzspLib.Model;
 
 namespace EzspLib.Requests;
 
-[StructLayout(LayoutKind.Sequential, Pack = 1)]
-public struct EzspGetNextBeaconResponse
+public class EzspGetNextBeaconResponse
 {
-    public EmberStatus status;
-    public EmberBeaconData beacon;
+    [FieldOrder(0)]
+    public EmberStatus Status { get; set; }
+
+    [FieldOrder(1)]
+    public EmberBeaconData Beacon { get; set; }
 }
