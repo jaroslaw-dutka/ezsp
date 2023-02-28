@@ -5,7 +5,7 @@ namespace EzspLib.Model;
 public class EmberInitialSecurityState
 {
     [FieldOrder(0)]
-    public EmberInitialSecurityBitmask Bitmask { get; set; }
+    public EmberInitialSecurity Bitmask { get; set; }
 
     [FieldOrder(1)]
     public EmberKeyData PreconfiguredKey { get; set; }
