@@ -2,7 +2,7 @@
 
 namespace EzspLib.Model;
 
-public class EzspEchoRequest
+public class EzspEchoResponse
 {
     [FieldOrder(0)]
     public byte Length { get; set; }

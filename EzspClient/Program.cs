@@ -12,10 +12,10 @@ await channel.ConnectAsync(CancellationToken.None);
 var ezsp = new EzspClient(channel);
 
 
-await ezsp.SetConfigurationValueAsync(EzspConfigId.EZSP_CONFIG_STACK_PROFILE, 2);
-await ezsp.SetConfigurationValueAsync(EzspConfigId.EZSP_CONFIG_SECURITY_LEVEL, 5);
-await ezsp.SetConfigurationValueAsync(EzspConfigId.EZSP_CONFIG_SUPPORTED_NETWORKS, 1);
-await ezsp.SetConfigurationValueAsync(EzspConfigId.EZSP_CONFIG_PACKET_BUFFER_COUNT, 64);
+await ezsp.SetConfigurationValueAsync(EzspConfigId.STACK_PROFILE, 2);
+await ezsp.SetConfigurationValueAsync(EzspConfigId.SECURITY_LEVEL, 5);
+await ezsp.SetConfigurationValueAsync(EzspConfigId.SUPPORTED_NETWORKS, 1);
+await ezsp.SetConfigurationValueAsync(EzspConfigId.PACKET_BUFFER_COUNT, 64);
 await ezsp.EchoAsync("test");
 
 // await client.SendAsync(EzspCommand.Version, 7);
@@ -50,10 +50,10 @@ var securityResponse = await channel.SendAsync<EzspSetInitialSecurityStateReques
 {
     State = new EmberInitialSecurityState
     {
-        Bitmask = EmberInitialSecurityBitmask.EMBER_HAVE_PRECONFIGURED_KEY
-                  | EmberInitialSecurityBitmask.EMBER_HAVE_NETWORK_KEY
-                  | EmberInitialSecurityBitmask.EMBER_REQUIRE_ENCRYPTED_KEY
-                  | EmberInitialSecurityBitmask.EMBER_TRUST_CENTER_GLOBAL_LINK_KEY,
+        Bitmask = EmberInitialSecurityBitmask.HAVE_PRECONFIGURED_KEY
+                  | EmberInitialSecurityBitmask.HAVE_NETWORK_KEY
+                  | EmberInitialSecurityBitmask.REQUIRE_ENCRYPTED_KEY
+                  | EmberInitialSecurityBitmask.TRUST_CENTER_GLOBAL_LINK_KEY,
         NetworkKey = new EmberKeyData(0xFF),
         PreconfiguredKey = new EmberKeyData("ZigBeeAlliance09")
     }
@@ -72,14 +72,14 @@ var securityResponse = await channel.SendAsync<EzspSetInitialSecurityStateReques
 
 var joinResponse = await channel.SendAsync<EzspJoinNetworkRequest, EzspResponse>(EzspCommand.JoinNetwork, new EzspJoinNetworkRequest
 {
-    NodeType = EmberNodeType.EMBER_ROUTER,
+    NodeType = EmberNodeType.ROUTER,
     Parameters = new EmberNetworkParameters
     {
         ExtendedPanId = new EzspExtendedPanId(0x00124B0029DDECFB),
         PanId = 0x1A62,
         RadioTxPower = 8,
         RadioChannel = 11,
-        JoinMethod = EmberJoinMethod.EMBER_USE_MAC_ASSOCIATION,
+        JoinMethod = EmberJoinMethod.USE_MAC_ASSOCIATION,
         NwkManagerId = 0,
         NwkUpdateId = 0,
         Channels = 0

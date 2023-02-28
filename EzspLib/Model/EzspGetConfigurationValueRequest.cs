@@ -1,10 +1,9 @@
 ﻿using System.Runtime.InteropServices;
 
-namespace EzspLib.Model
+namespace EzspLib.Model;
+
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+public struct EzspGetConfigurationValueRequest
 {
-    [StructLayout(LayoutKind.Sequential, Pack = 1)]
-    public struct EzspGetConfigurationValueRequest
-    {
-        public EzspConfigId configId;
-    }
+    public EzspConfigId configId;
 }
