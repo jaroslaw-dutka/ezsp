@@ -1,7 +1,7 @@
 ﻿using System.Buffers.Binary;
 using EzspLib.Ash;
 
-namespace EzspLib.Ezsp;
+namespace EzspLib;
 
 public class EzspChannel
 {

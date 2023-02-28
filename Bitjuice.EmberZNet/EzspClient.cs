@@ -1,5 +1,4 @@
-﻿using EzspLib.Ezsp;
-using EzspLib.Model;
+﻿using EzspLib.Model;
 using EzspLib.Requests;
 
 namespace EzspLib;

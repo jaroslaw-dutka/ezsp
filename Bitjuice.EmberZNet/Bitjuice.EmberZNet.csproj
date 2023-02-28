@@ -10,4 +10,8 @@
     <PackageReference Include="BinarySerializer" Version="8.6.3.2" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\Bitjuice.EmberZNet.Ash\Bitjuice.EmberZNet.Ash.csproj" />
+  </ItemGroup>
+
 </Project>

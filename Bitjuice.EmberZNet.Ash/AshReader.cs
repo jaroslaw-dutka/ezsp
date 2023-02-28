@@ -1,5 +1,5 @@
 ﻿using System.Buffers.Binary;
-using EzspLib.Utils;
+using EzspLib.Ash.Utils;
 
 namespace EzspLib.Ash;
 
@@ -84,7 +84,7 @@ public class AshReader
         var escape = false;
         while (!endOfFrame)
         {
-            var b = await stream.ReadByteAsync(cancellationToken);
+            var b = await ReadByteAsync(cancellationToken);
             if (b < 0)
                 return -1;
 
@@ -128,5 +128,14 @@ public class AshReader
         }
 
         return index;
+    }
+
+    public async Task<int> ReadByteAsync(CancellationToken cancellationToken)
+    {
+        var array = new byte[1];
+        var bytes = await stream.ReadAsync(array, 0, 1, cancellationToken);
+        if (bytes == 0)
+            return -1;
+        return array[0];
     }
 }

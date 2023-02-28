@@ -1,6 +1,5 @@
 ﻿using System.Net.Sockets;
 using EzspLib;
-using EzspLib.Ezsp;
 using EzspLib.Model;
 
 var tcp = new TcpClient();
@@ -63,4 +62,4 @@ await ezsp.JoinNetworkAsync(EmberNodeType.ROUTER, new EmberNetworkParameters
     Channels = 0
 });
 
-await Task.Delay(200000);
+await Task.Delay(100000);

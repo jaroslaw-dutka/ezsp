@@ -1,6 +1,6 @@
 ﻿using BinarySerialization;
 
-namespace EzspLib.Ezsp;
+namespace EzspLib;
 
 public class EzspSerializer
 {

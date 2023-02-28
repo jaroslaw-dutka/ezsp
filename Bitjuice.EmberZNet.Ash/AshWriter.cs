@@ -1,4 +1,4 @@
-﻿using EzspLib.Utils;
+﻿using EzspLib.Ash.Utils;
 
 namespace EzspLib.Ash;
 
@@ -22,7 +22,7 @@ public class AshWriter
     }
 
     public async Task WriteDiscardAsync(CancellationToken cancellationToken) 
-        => await stream.WriteByteAsync((byte)AshReservedByte.Cancel, cancellationToken);
+        => await stream.WriteAsync(new[] { (byte)AshReservedByte.Cancel }, cancellationToken);
 
     public async Task WriteResetAsync(CancellationToken cancellationToken) 
         => await WriteAsync(AshControlByteFactory.Reset(), Array.Empty<byte>(), cancellationToken);

@@ -1,5 +1,5 @@
 ﻿using System.Collections.Concurrent;
-using EzspLib.Utils;
+using EzspLib.Ash.Utils;
 
 namespace EzspLib.Ash;
 

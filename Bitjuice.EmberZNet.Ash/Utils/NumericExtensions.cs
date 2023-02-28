@@ -1,4 +1,4 @@
-﻿namespace EzspLib.Utils;
+﻿namespace EzspLib.Ash.Utils;
 
 public static class NumericExtensions
 {
