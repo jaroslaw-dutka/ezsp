@@ -1,17 +1,17 @@
-﻿using EzspLib.Model;
-using EzspLib.Requests;
+﻿using Bitjuice.EmberZNet.Api;
+using Bitjuice.EmberZNet.Model;
 
-namespace EzspLib;
+namespace Bitjuice.EmberZNet;
 
-public class EzspClient
+public class EzspApi
 {
     private EzspChannel Channel { get; }
 
-    public EzspClient(Stream stream): this(new EzspChannel(stream))
+    public EzspApi(Stream stream): this(new EzspChannel(stream))
     {
     }
 
-    public EzspClient(EzspChannel channel)
+    public EzspApi(EzspChannel channel)
     {
         Channel = channel;
     }

@@ -1,4 +1,4 @@
-﻿namespace EzspLib.Ash;
+﻿namespace Bitjuice.EmberZNet.Ash;
 
 internal class AshDataSendTask
 {

@@ -1,7 +1,7 @@
 ﻿using BinarySerialization;
-using EzspLib.Model;
+using Bitjuice.EmberZNet.Model;
 
-namespace EzspLib.Requests;
+namespace Bitjuice.EmberZNet.Api;
 
 public class EzspSetMfgTokenRequest
 {

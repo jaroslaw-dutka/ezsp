@@ -1,4 +1,4 @@
-﻿namespace EzspLib.Model;
+﻿namespace Bitjuice.EmberZNet.Model;
 
 [Flags]
 public enum EmberInitialSecurity : ushort

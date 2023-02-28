@@ -1,8 +1,8 @@
 ﻿using BinarySerialization;
 
-namespace EzspLib.Requests;
+namespace Bitjuice.EmberZNet.Api;
 
-public class EzspGetMfgTokenResponse
+public class EzspEchoResponse
 {
     [FieldOrder(0)]
     public byte Length { get; set; }

@@ -1,4 +1,4 @@
-﻿namespace EzspLib;
+﻿namespace Bitjuice.EmberZNet;
 
 public enum EzspCommand : ushort
 {

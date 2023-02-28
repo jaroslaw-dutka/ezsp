@@ -1,6 +1,6 @@
 ﻿using BinarySerialization;
 
-namespace EzspLib.Model;
+namespace Bitjuice.EmberZNet.Model;
 
 public class EmberNetworkParameters
 {

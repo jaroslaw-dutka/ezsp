@@ -1,6 +1,6 @@
 ﻿using BinarySerialization;
 
-namespace EzspLib;
+namespace Bitjuice.EmberZNet;
 
 public class EzspSerializer
 {

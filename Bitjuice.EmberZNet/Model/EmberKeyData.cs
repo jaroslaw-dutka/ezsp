@@ -1,7 +1,7 @@
 ﻿using System.Text;
 using BinarySerialization;
 
-namespace EzspLib.Model;
+namespace Bitjuice.EmberZNet.Model;
 
 public class EmberKeyData
 {

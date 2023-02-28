@@ -1,7 +1,7 @@
 ﻿using System.Collections.Concurrent;
-using EzspLib.Ash.Utils;
+using Bitjuice.EmberZNet.Ash.Utils;
 
-namespace EzspLib.Ash;
+namespace Bitjuice.EmberZNet.Ash;
 
 public class AshChannel
 {

@@ -1,6 +1,6 @@
-﻿using EzspLib.Ash.Utils;
+﻿using Bitjuice.EmberZNet.Ash.Utils;
 
-namespace EzspLib.Ash;
+namespace Bitjuice.EmberZNet.Ash;
 
 public class AshWriter
 {

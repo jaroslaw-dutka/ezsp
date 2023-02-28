@@ -1,6 +1,6 @@
 ﻿using BinarySerialization;
 
-namespace EzspLib.Requests;
+namespace Bitjuice.EmberZNet.Api;
 
 public class EzspVersionResponse
 {

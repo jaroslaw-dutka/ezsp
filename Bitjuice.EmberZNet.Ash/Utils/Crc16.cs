@@ -1,4 +1,4 @@
-﻿namespace EzspLib.Ash.Utils;
+﻿namespace Bitjuice.EmberZNet.Ash.Utils;
 
 public class Crc16
 {

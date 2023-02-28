@@ -1,6 +1,6 @@
 ﻿using System.Net.Sockets;
-using EzspLib;
-using EzspLib.Model;
+using Bitjuice.EmberZNet;
+using Bitjuice.EmberZNet.Model;
 
 var tcp = new TcpClient();
 tcp.Connect("192.168.1.40", 8888);
@@ -13,7 +13,7 @@ channel.CallbackReceived += bytes =>
     var aa = 2;
 };
 
-var ezsp = new EzspClient(channel);
+var ezsp = new EzspApi(channel);
 
 // await ezsp.EchoAsync("test");
 // await ezsp.SetMfgTokenAsync(EzspMfgTokenId.MFG_BOARD_NAME, "dupadupadupablad");

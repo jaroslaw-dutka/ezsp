@@ -1,7 +1,7 @@
 ﻿using System.Buffers.Binary;
-using EzspLib.Ash;
+using Bitjuice.EmberZNet.Ash;
 
-namespace EzspLib;
+namespace Bitjuice.EmberZNet;
 
 public class EzspChannel
 {
