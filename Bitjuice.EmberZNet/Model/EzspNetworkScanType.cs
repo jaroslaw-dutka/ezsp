@@ -2,6 +2,6 @@
 
 public enum EzspNetworkScanType: byte
 {
-    ENERGY_SCAN = 0x00,
-    ACTIVE_SCAN = 0x01
+    EnergyScan = 0x00,
+    ActiveScan = 0x01
 }

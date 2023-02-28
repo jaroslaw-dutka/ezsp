@@ -3,16 +3,16 @@
 [Flags]
 public enum EmberInitialSecurity : ushort
 {
-    STANDARD_SECURITY_MODE = 0x0000,
-    DISTRIBUTED_TRUST_CENTER_MODE = 0x0002,
-    TRUST_CENTER_GLOBAL_LINK_KEY = 0x0004,
-    PRECONFIGURED_NETWORK_KEY_MODE = 0x0008,
-    TRUST_CENTER_USES_HASHED_LINK_KEY = 0x0084,
-    HAVE_PRECONFIGURED_KEY = 0x0100,
-    HAVE_NETWORK_KEY = 0x0200,
-    GET_LINK_KEY_WHEN_JOINING = 0x0400,
-    REQUIRE_ENCRYPTED_KEY = 0x0800,
-    NO_FRAME_COUNTER_RESET = 0x1000,
-    GET_PRECONFIGURED_KEY_FROM_INSTALL_CODE = 0x2000,
-    HAVE_TRUST_CENTER_EUI64 = 0x0040,
+    StandardSecurityMode = 0x0000,
+    DistributedTrustCenterMode = 0x0002,
+    TrustCenterGlobalLinkKey = 0x0004,
+    PreconfiguredNetworkKeyMode = 0x0008,
+    TrustCenterUsesHashedLinkKey = 0x0084,
+    HavePreconfiguredKey = 0x0100,
+    HaveNetworkKey = 0x0200,
+    GetLinkKeyWhenJoining = 0x0400,
+    RequireEncryptedKey = 0x0800,
+    NoFrameCounterReset = 0x1000,
+    GetPreconfiguredKeyFromInstallCode = 0x2000,
+    HaveTrustCenterEui64 = 0x0040,
 }
