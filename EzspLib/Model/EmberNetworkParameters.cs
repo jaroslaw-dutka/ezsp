@@ -1,17 +1,30 @@
-﻿using System.Runtime.InteropServices;
+﻿using BinarySerialization;
 
 namespace EzspLib.Model;
 
-[StructLayout(LayoutKind.Sequential, Pack = 1)]
-public struct EmberNetworkParameters
+public class EmberNetworkParameters
 {
-    [MarshalAs(UnmanagedType.ByValArray, SizeConst = 8)]
-    public byte[] extendedPanId;
-    public ushort panId;
-    public byte radioTxPower;
-    public byte radioChannel;
-    public EmberJoinMethod joinMethod;
-    public ushort nwkManagerId;
-    public byte nwkUpdateId;
-    public uint channels;
+    [FieldOrder(0)]
+    public EzspExtendedPanId ExtendedPanId { get; set; }
+
+    [FieldOrder(1)]
+    public ushort PanId { get; set; }
+
+    [FieldOrder(2)]
+    public byte RadioTxPower { get; set; }
+
+    [FieldOrder(3)]
+    public byte RadioChannel { get; set; }
+
+    [FieldOrder(4)]
+    public EmberJoinMethod JoinMethod { get; set; }
+
+    [FieldOrder(5)]
+    public ushort NwkManagerId { get; set; }
+
+    [FieldOrder(6)]
+    public byte NwkUpdateId { get; set; }
+
+    [FieldOrder(7)]
+    public uint Channels { get; set; }
 }

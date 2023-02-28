@@ -1,10 +1,12 @@
-﻿using System.Runtime.InteropServices;
+﻿using BinarySerialization;
 
 namespace EzspLib.Model;
 
-[StructLayout(LayoutKind.Sequential, Pack = 1)]
-public struct EzspJoinNetworkRequest
+public class EzspJoinNetworkRequest
 {
-    public EmberNodeType nodeType;
-    public EmberNetworkParameters parameters;
+    [FieldOrder(0)]
+    public EmberNodeType NodeType { get; set; }
+
+    [FieldOrder(1)]
+    public EmberNetworkParameters Parameters { get; set; }
 }

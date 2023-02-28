@@ -210,6 +210,7 @@ public enum EzspCommand : ushort
     SetLongUpTime = 0x00E3,
     SetMacPollFailureWaitTime = 0x00F4,
     SetManufacturerCode = 0x0015,
+    SetMfgToken = 0x000C,
     SetMulticastTableEntry = 0x0064,
     SetNeighborFrameCounter = 0x00AD,
     SetParentClassificationEnabled = 0x00E7,

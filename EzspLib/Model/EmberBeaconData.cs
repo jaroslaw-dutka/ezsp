@@ -1,22 +1,45 @@
-﻿using System.Runtime.InteropServices;
+﻿using BinarySerialization;
 
 namespace EzspLib.Model;
 
-[StructLayout(LayoutKind.Sequential, Pack = 1)]
-public struct EmberBeaconData
+public class EmberBeaconData
 {
-    public byte channel;
-    public byte lqi;
-    public sbyte rssi;
-    public byte depth;
-    public byte nwkUpdateId;
-    public sbyte power;
-    public sbyte parentPriority;
-    public ushort panId;
-    [MarshalAs(UnmanagedType.ByValArray, SizeConst = 8)]
-    public byte[] extendedPanId;
-    public ushort sender;
-    public bool enhanced;
-    public bool permitJoin;
-    public bool hasCapacity;
+    [FieldOrder(0)]
+    public byte Channel { get; set; }
+
+    [FieldOrder(1)]
+    public byte Lqi { get; set; }
+
+    [FieldOrder(2)]
+    public sbyte Rssi { get; set; }
+
+    [FieldOrder(3)]
+    public byte Depth { get; set; }
+
+    [FieldOrder(4)]
+    public byte NwkUpdateId { get; set; }
+
+    [FieldOrder(5)]
+    public sbyte Power { get; set; }
+
+    [FieldOrder(6)]
+    public sbyte ParentPriority { get; set; }
+
+    [FieldOrder(7)]
+    public ushort PanId { get; set; }
+
+    [FieldOrder(8)]
+    public EzspExtendedPanId ExtendedPanId { get; set; }
+
+    [FieldOrder(9)]
+    public ushort Sender { get; set; }
+
+    [FieldOrder(10)]
+    public bool Enhanced { get; set; }
+
+    [FieldOrder(11)]
+    public bool PermitJoin { get; set; }
+
+    [FieldOrder(12)]
+    public bool HasCapacity { get; set; }
 }

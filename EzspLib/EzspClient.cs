@@ -7,24 +7,34 @@ namespace EzspLib
     {
         private EzspChannel Channel { get; }
 
-        public EzspClient(Stream stream)
+        public EzspClient(Stream stream): this(new EzspChannel(stream))
         {
-            Channel = new EzspChannel(stream);
         }
 
-        public async Task<EzspStatus> SetConfigurationValueAsync(EzspConfigId configId, ushort value)
+        public EzspClient(EzspChannel channel)
         {
-            var request = new EzspSetConfigurationValueRequest { configId = configId, value = value };
-            var response = await Channel.SendAsync<EzspSetConfigurationValueRequest, EzspResponse>(EzspCommand.SetConfigurationValue, request);
-            return response.status;
+            Channel = channel;
         }
 
-        //public async Task<EzspStatus> GetConfigurationValueAsync(EzspConfigId configId, out ushort value)
-        //{
-        //    var request = new EzspGetConfigurationValueRequest { configId = configId };
-        //    var response = await Channel.SendAsync<EzspGetConfigurationValueRequest, EzspGetConfigurationValueResponse> (EzspCommand.SetConfigurationValue, request);
-        //    value = response.value;
-        //    return response.status;
-        //}
+        // public async Task<EzspResponse> VersionAsync(byte version)
+        // {
+        //     return await Channel.SendAsync(EzspCommand.Version, 7);
+        // }
+
+        public async Task<string> EchoAsync(string text)
+        {
+            var response = await Channel.SendAsync<EzspEchoRequest, EzspEchoResponse>(EzspCommand.Echo, new EzspEchoRequest {Data = text});
+            return response.Data;
+        }
+
+        public async Task<EzspResponse> SetConfigurationValueAsync(EzspConfigId configId, ushort value)
+        {
+            return await Channel.SendAsync<EzspSetConfigurationValueRequest, EzspResponse>(EzspCommand.SetConfigurationValue, new EzspSetConfigurationValueRequest { ConfigId = configId, Value = value });
+        }
+
+        public async Task<EzspGetConfigurationValueResponse> GetConfigurationValueAsync(EzspConfigId configId)
+        {
+            return await Channel.SendAsync<EzspGetConfigurationValueRequest, EzspGetConfigurationValueResponse> (EzspCommand.SetConfigurationValue, new EzspGetConfigurationValueRequest { configId = configId });
+        }
     }
 }

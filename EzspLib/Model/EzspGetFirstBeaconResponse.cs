@@ -1,10 +1,12 @@
-﻿using System.Runtime.InteropServices;
+﻿using BinarySerialization;
 
 namespace EzspLib.Model;
 
-[StructLayout(LayoutKind.Sequential, Pack = 1)]
-public struct EzspGetFirstBeaconResponse
+public class EzspGetFirstBeaconResponse
 {
-    public EmberStatus status;
-    public EmberBeaconIterator iterator;
+    [FieldOrder(0)]
+    public EmberStatus Status { get; set; }
+
+    [FieldOrder(1)]
+    public EmberBeaconIterator Iterator { get; set; }
 }

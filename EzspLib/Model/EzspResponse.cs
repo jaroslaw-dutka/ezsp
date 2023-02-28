@@ -1,9 +1,9 @@
-﻿using System.Runtime.InteropServices;
+﻿using BinarySerialization;
 
 namespace EzspLib.Model;
 
-[StructLayout(LayoutKind.Sequential, Pack = 1)]
-public struct EzspResponse
+public class EzspResponse
 {
-    public EzspStatus status;
+    [FieldOrder(0)]
+    public EzspStatus Status { get; set; }
 }

@@ -1,11 +1,15 @@
-﻿using System.Runtime.InteropServices;
+﻿using BinarySerialization;
 
 namespace EzspLib.Model;
 
-[StructLayout(LayoutKind.Sequential, Pack = 1)]
-public struct EzspStartScanRequest
+public class EzspStartScanRequest
 {
-    public EzspNetworkScanType scanType;
-    public uint channelMask;
-    public byte duration;
+    [FieldOrder(0)]
+    public EzspNetworkScanType ScanType { get; set; }
+
+    [FieldOrder(1)]
+    public uint ChannelMask { get; set; }
+
+    [FieldOrder(2)]
+    public byte Duration { get; set; }
 }

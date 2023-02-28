@@ -1,27 +1,21 @@
-﻿using System.Runtime.InteropServices;
+﻿using BinarySerialization;
 
 namespace EzspLib.Ezsp;
 
 public class EzspSerializer
 {
-    public static byte[] Serialize<T>(T obj) where T : struct
+    private static readonly BinarySerializer Serializer = new();
+
+    public static byte[] Serialize<T>(T obj)
     {
-        var size = Marshal.SizeOf(obj);
-        var bytes = new byte[size];
-        var ptr = Marshal.AllocHGlobal(size);
-        Marshal.StructureToPtr(obj, ptr, true);
-        Marshal.Copy(ptr, bytes, 0, size);
-        Marshal.FreeHGlobal(ptr);
-        return bytes;
+        var stream = new MemoryStream();
+        Serializer.Serialize(stream, obj);
+        return stream.ToArray();
     }
 
-    public static T Deserialize<T>(byte[] bytes) where T : struct
+    public static T Deserialize<T>(byte[] bytes)
     {
-        var size = Marshal.SizeOf<T>();
-        var ptr = Marshal.AllocHGlobal(size);
-        Marshal.Copy(bytes, 0, ptr, size);
-        var obj = Marshal.PtrToStructure<T>(ptr);
-        Marshal.FreeHGlobal(ptr);
-        return obj;
+        var stream = new MemoryStream(bytes);
+        return Serializer.Deserialize<T>(stream);
     }
 }

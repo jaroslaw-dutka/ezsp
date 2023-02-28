@@ -6,4 +6,8 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <PackageReference Include="BinarySerializer" Version="8.6.3.2" />
+  </ItemGroup>
+
 </Project>

@@ -1,15 +1,24 @@
-﻿using System.Runtime.InteropServices;
+﻿using BinarySerialization;
 
 namespace EzspLib.Model;
 
-[StructLayout(LayoutKind.Sequential, Pack = 1)]
-public struct EmberZigbeeNetwork
+public class EmberZigbeeNetwork
 {
-    public byte channel;
-    public ushort panId;
-    [MarshalAs(UnmanagedType.ByValArray, SizeConst = 8)]
-    public byte[] extendedPanId;
-    public bool allowingJoin;
-    public byte stackProfile;
-    public byte nwkUpdateId;
+    [FieldOrder(0)]
+    public byte Channel { get; set; }
+
+    [FieldOrder(1)]
+    public ushort PanId { get; set; }
+
+    [FieldOrder(2)]
+    public EzspExtendedPanId ExtendedPanId { get; set; }
+
+    [FieldOrder(3)]
+    public bool AllowingJoin { get; set; }
+
+    [FieldOrder(4)]
+    public byte StackProfile { get; set; }
+
+    [FieldOrder(5)]
+    public byte NwkUpdateId { get; set; }
 }

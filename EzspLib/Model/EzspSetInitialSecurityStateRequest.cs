@@ -1,6 +1,9 @@
-﻿namespace EzspLib.Model;
+﻿using BinarySerialization;
 
-public struct EzspSetInitialSecurityStateRequest
+namespace EzspLib.Model;
+
+public class EzspSetInitialSecurityStateRequest
 {
-    public EmberInitialSecurityState state;
+    [FieldOrder(0)]
+    public EmberInitialSecurityState State { get; set; }
 }

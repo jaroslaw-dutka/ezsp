@@ -1,13 +1,21 @@
-﻿using System.Runtime.InteropServices;
+﻿using BinarySerialization;
 
 namespace EzspLib.Model;
 
-[StructLayout(LayoutKind.Sequential, Pack = 1)]
-public struct EmberInitialSecurityState
+public class EmberInitialSecurityState
 {
-    public EmberInitialSecurityBitmask bitmask;
-    public EmberKeyData preconfiguredKey;
-    public EmberKeyData networkKey;
-    public byte networkKeySequenceNumber;
-    public ulong preconfiguredTrustCenterEui64;
+    [FieldOrder(0)]
+    public EmberInitialSecurityBitmask Bitmask { get; set; }
+
+    [FieldOrder(1)]
+    public EmberKeyData PreconfiguredKey { get; set; }
+
+    [FieldOrder(2)]
+    public EmberKeyData NetworkKey { get; set; }
+
+    [FieldOrder(3)]
+    public byte NetworkKeySequenceNumber { get; set; }
+
+    [FieldOrder(4)]
+    public ulong PreconfiguredTrustCenterEui64 { get; set; }
 }

@@ -1,10 +1,12 @@
-﻿using System.Runtime.InteropServices;
+﻿using BinarySerialization;
 
 namespace EzspLib.Model;
 
-[StructLayout(LayoutKind.Sequential, Pack = 1)]
-public struct EzspSetConfigurationValueRequest
+public class EzspSetConfigurationValueRequest
 {
-    public EzspConfigId configId;
-    public ushort value;
+    [FieldOrder(0)]
+    public EzspConfigId ConfigId { get; set; }
+
+    [FieldOrder(1)]
+    public ushort Value { get; set; }
 }

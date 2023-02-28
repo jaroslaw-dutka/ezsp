@@ -43,11 +43,17 @@ public class EzspChannel
         }
     }
 
-    public async Task<TResult> SendAsync<TRequest, TResult>(EzspCommand cmd, TRequest request) where TRequest : struct where TResult : struct
+    public async Task<TResponse> SendAsync<TResponse>(EzspCommand cmd)
+    {
+        var responseBytes = await SendAsync(cmd, Array.Empty<byte>());
+        return EzspSerializer.Deserialize<TResponse>(responseBytes.Span.ToArray());
+    }
+
+    public async Task<TResponse> SendAsync<TRequest, TResponse>(EzspCommand cmd, TRequest request)
     {
         var requestBytes = EzspSerializer.Serialize(request);
         var responseBytes = await SendAsync(cmd, requestBytes);
-        return EzspSerializer.Deserialize<TResult>(responseBytes.Span.ToArray());
+        return EzspSerializer.Deserialize<TResponse>(responseBytes.Span.ToArray());
     }
 
     public async Task<ReadOnlyMemory<byte>> SendAsync(EzspCommand cmd, params byte[] data)
