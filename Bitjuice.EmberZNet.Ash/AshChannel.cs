@@ -12,6 +12,7 @@ public class AshChannel
 
     private CancellationTokenSource? cts;
     private byte outgoingFrame;
+    private byte outgoingFrameAck;
     private byte incomingFrame;
     private sbyte ackPending;
 
@@ -71,11 +72,11 @@ public class AshChannel
                     await writer.WriteNakAsync(incomingFrame, cancellationToken);
                 ackPending = 0;
             }
-            else if (!sendQueue.TryDequeue(out var item))
+            else if (outgoingFrame != outgoingFrameAck || !sendQueue.TryDequeue(out var item))
             {
                 try
                 {
-                    await Task.Delay(100, cancellationToken);
+                    await Task.Delay(1, cancellationToken);
                 }
                 catch (TaskCanceledException)
                 {
@@ -108,7 +109,10 @@ public class AshChannel
             if (frame.Control.Type == AshFrameType.Ack)
             {
                 if (frame.Control.AckNumber == outgoingFrame)
-                    incomingFrame = frame.Control.FrameNumber.IncMod8();
+                {
+                    outgoingFrameAck = frame.Control.AckNumber;
+                    // incomingFrame = frame.Control.FrameNumber.IncMod8();
+                }
                 else
                     ackPending = -1;
             }
@@ -131,6 +135,7 @@ public class AshChannel
                 }
                 else
                 {
+                    outgoingFrameAck = frame.Control.AckNumber;
                     ackPending = 1;
                     incomingFrame = frame.Control.FrameNumber.IncMod8();
                     DataReceived?.Invoke(frame.Data);

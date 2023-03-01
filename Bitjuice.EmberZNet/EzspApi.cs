@@ -89,10 +89,15 @@ public class EzspApi
         await Channel.SendAsync(EzspCommand.LaunchStandaloneBootloader);
     }
 
-    public async Task SetTimerAsync()
+    public async Task SetTimerAsync(ushort timeMs)
     {
-        // TODO:
-        await Channel.SendAsync(EzspCommand.SetTimer, 0, 100, 0, 1, 1);
+        await Channel.SendAsync<EzspSetTimerRequest, EzspResponse>(EzspCommand.SetTimer, new EzspSetTimerRequest()
+        {
+            TimerId = 0,
+            Time = timeMs,
+            Units = EmberEventUnits.MsTime,
+            Repeat = true
+        });
     }
 
     public async Task NopAsync()

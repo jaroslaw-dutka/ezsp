@@ -21,18 +21,21 @@ public class TestApp
 
     public async Task RunAsync()
     {
-        // await ezsp.EchoAsync("test");
+        await ezsp.SetTimerAsync(1);
+        for(var i=0; i<100; i++)
+            ezsp.EchoAsync("test");
+
         // await ezsp.SetMfgTokenAsync(EzspMfgTokenId.MFG_BOARD_NAME, "dupadupadupablad");
         // var aaa = await ezsp.GetMfgTokenAsync(EzspMfgTokenId.MFG_BOARD_NAME);
         // var bbb = await ezsp.GetMfgTokenAsync(EzspMfgTokenId.MFG_MANUF_ID);
         // await channel.SendAsync<EzspResponse>(EzspCommand.GetNumStoredBeacons);
         // var beaconResponse = await channel.SendAsync<EzspGetFirstBeaconResponse>(EzspCommand.GetFirstBeacon);
 
-        await ConfigureAsync();
-        await InitNetworkAsync();
-        await InitSecurityAsync();
+        // await ConfigureAsync();
+        // await InitNetworkAsync();
+        // await InitSecurityAsync();
         // await ScanAsync();
-        await JoinNetworkAsync();
+        // await JoinNetworkAsync();
     }
 
     private async Task ConfigureAsync()
