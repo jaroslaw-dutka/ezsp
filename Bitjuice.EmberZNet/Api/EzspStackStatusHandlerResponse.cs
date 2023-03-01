@@ -3,7 +3,7 @@ using Bitjuice.EmberZNet.Model;
 
 namespace Bitjuice.EmberZNet.Api;
 
-public class EzspJoinNetworkResponse
+public class EzspStackStatusHandlerResponse
 {
     [FieldOrder(0)] 
     public EmberStatus Status { get; set; }

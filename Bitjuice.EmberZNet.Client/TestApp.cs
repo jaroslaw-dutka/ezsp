@@ -1,6 +1,5 @@
 ﻿using System.Buffers.Binary;
 using System.Net.Sockets;
-using System.Threading.Channels;
 using Bitjuice.EmberZNet.Api;
 using Bitjuice.EmberZNet.Model;
 
@@ -13,30 +12,11 @@ public class TestApp
     public async Task ConnectAsync()
     {
         var tcp = new TcpClient();
-        tcp.Connect("192.168.1.40", 8888);
+        await tcp.ConnectAsync("192.168.1.40", 8888);
         var channel = new EzspChannel(tcp.GetStream());
         await channel.ConnectAsync(CancellationToken.None);
         channel.CallbackReceived += CallbackReceived;
         ezsp = new EzspApi(channel);
-    }
-
-    private void CallbackReceived(byte[] bytes)
-    {
-        var cmd = (EzspCommand)BinaryPrimitives.ReadUInt16BigEndian(bytes.AsSpan(3));
-        Console.WriteLine($"Callback 0x{cmd:X4}");
-        if (cmd == EzspCommand.JoinNetwork)
-        {
-            var aa = EzspSerializer.Deserialize<EzspJoinNetworkResponse>(bytes.AsSpan(5).ToArray());
-            if (aa.Status != EmberStatus.Success)
-                JoinNetwork();
-        }
-        if (cmd == EzspCommand.IncomingMessageHandler)
-        {
-            var aa = EzspSerializer.Deserialize<EzspIncomingMessageHandlerResponse>(bytes.AsSpan(5).ToArray());
-            var bb = 2;
-        }
-
-        var cc = 2;
     }
 
     public async Task RunAsync()
@@ -48,36 +28,14 @@ public class TestApp
         // await channel.SendAsync<EzspResponse>(EzspCommand.GetNumStoredBeacons);
         // var beaconResponse = await channel.SendAsync<EzspGetFirstBeaconResponse>(EzspCommand.GetFirstBeacon);
 
-        await Configure();
-
-        // var response = await ezsp.NetworkInitAsync();
-        // if ((byte)response.Status != 0x93) 
-        //     response = await ezsp.LeaveNetworkAsync();
-        //
-        // var state = await ezsp.NetworkStateAsync();
-        // while (state.Status != EmberNetworkStatus.NoNetwork)
-        // {
-        //     await Task.Delay(100);
-        //     state = await ezsp.NetworkStateAsync();
-        // }
-
-        await ezsp.SetInitialSecurityStateAsync(new EmberInitialSecurityState
-        {
-            Bitmask = EmberInitialSecurity.HavePreconfiguredKey | EmberInitialSecurity.HaveNetworkKey | EmberInitialSecurity.RequireEncryptedKey | EmberInitialSecurity.TrustCenterGlobalLinkKey,
-            NetworkKey = new EmberKeyData(0xFF),
-            PreconfiguredKey = new EmberKeyData("ZigBeeAlliance09")
-        });
-
-        // await ezsp.StartScanAsync(EzspNetworkScanType.ActiveScan, 0x07FFF800, 5);
-        // await Task.Delay(5000);
-        // await ezsp.StopScanAsync();
-
-        await JoinNetwork();
-
-        
+        await ConfigureAsync();
+        await InitNetworkAsync();
+        await InitSecurityAsync();
+        // await ScanAsync();
+        await JoinNetworkAsync();
     }
 
-    private async Task Configure()
+    private async Task ConfigureAsync()
     {
         var version = await ezsp.VersionAsync(7);
         await ezsp.SetConfigurationValueAsync(EzspConfigId.StackProfile, version.StackType);
@@ -107,7 +65,38 @@ public class TestApp
         // });
     }
 
-    private async Task JoinNetwork()
+    private async Task InitNetworkAsync()
+    {
+        var response = await ezsp.NetworkInitAsync();
+        if ((byte)response.Status != 0x93)
+            response = await ezsp.LeaveNetworkAsync();
+
+        var state = await ezsp.NetworkStateAsync();
+        while (state.Status != EmberNetworkStatus.NoNetwork)
+        {
+            await Task.Delay(100);
+            state = await ezsp.NetworkStateAsync();
+        }
+    }
+
+    private async Task InitSecurityAsync()
+    {
+        await ezsp.SetInitialSecurityStateAsync(new EmberInitialSecurityState
+        {
+            Bitmask = EmberInitialSecurity.HavePreconfiguredKey | EmberInitialSecurity.HaveNetworkKey | EmberInitialSecurity.RequireEncryptedKey | EmberInitialSecurity.TrustCenterGlobalLinkKey,
+            NetworkKey = new EmberKeyData(0xFF),
+            PreconfiguredKey = new EmberKeyData("ZigBeeAlliance09")
+        });
+    }
+
+    private async Task ScanAsync()
+    {
+        await ezsp.StartScanAsync(EzspNetworkScanType.ActiveScan, 0x07FFF800, 5);
+        await Task.Delay(5000);
+        await ezsp.StopScanAsync();
+    }
+
+    private async Task JoinNetworkAsync()
     {
         await ezsp.JoinNetworkAsync(EmberNodeType.Router, new EmberNetworkParameters
         {
@@ -120,5 +109,30 @@ public class TestApp
             NwkUpdateId = 0,
             Channels = 0
         });
+    }
+
+    private void CallbackReceived(byte[] bytes)
+    {
+        var cmd = (EzspCommand)BinaryPrimitives.ReadUInt16BigEndian(bytes.AsSpan(3));
+
+        Console.WriteLine($"Callback {cmd}");
+        Console.WriteLine();
+
+        if (cmd == EzspCommand.StackStatusHandler)
+        {
+            var aa = EzspSerializer.Deserialize<EzspStackStatusHandlerResponse>(bytes.AsSpan(5).ToArray());
+            if (aa.Status != EmberStatus.Success)
+                Task.Delay(2000).ContinueWith(async (obj) =>
+                {
+                    await JoinNetworkAsync();
+                });
+        }
+        if (cmd == EzspCommand.IncomingMessageHandler)
+        {
+            var aa = EzspSerializer.Deserialize<EzspIncomingMessageHandlerResponse>(bytes.AsSpan(5).ToArray());
+            var bb = 2;
+        }
+
+        var cc = 2;
     }
 }
