@@ -98,7 +98,6 @@ public class AshChannel
             var frame = await reader.ReadAsync(cancellationToken);
             if (!frame.IsValid)
             {
-                Console.WriteLine($"Invalid frame: {frame.Error}");
                 ackPending = -1;
                 continue;
             }

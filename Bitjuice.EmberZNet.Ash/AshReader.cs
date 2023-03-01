@@ -37,8 +37,6 @@ public class AshReader
 
         var computedCrc = Crc16.CcittFalse(buffer.AsSpan(0, length - 2));
         var receivedCrc = BinaryPrimitives.ReadUInt16BigEndian(buffer.AsSpan(length - 2, 2));
-        if (computedCrc != receivedCrc)
-            return AshFrame.Invalid(AshFrameError.InvalidCrc);
 
         switch (ctrl.Type)
         {
@@ -63,6 +61,17 @@ public class AshReader
 
         if (ctrl.Type == AshFrameType.Data)
             AshRandom.Xor(data);
+
+        if (computedCrc != receivedCrc)
+        {
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine("In " + DateTime.Now.ToString("O"));
+            Console.WriteLine($"Ctrl: {ctrl}");
+            Console.WriteLine($"Data: {BitConverter.ToString(data).Replace("-", " ")}");
+            Console.WriteLine();
+
+            return AshFrame.Invalid(AshFrameError.InvalidCrc);
+        }
 
         if (verbose)
         {

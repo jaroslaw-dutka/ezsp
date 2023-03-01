@@ -5,7 +5,7 @@ namespace Bitjuice.EmberZNet;
 
 public class EzspApi
 {
-    private EzspChannel Channel { get; }
+    public EzspChannel Channel { get; }
 
     public EzspApi(Stream stream): this(new EzspChannel(stream))
     {
