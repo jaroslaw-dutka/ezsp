@@ -11,4 +11,20 @@ public static class NumericExtensions
     {
         return (byte)((value + 1) % 8);
     }
+
+    public static bool InRangeMod8(this byte value, byte low, byte high)
+    {
+        if (low < high)
+            return value >= low && value <= high;
+        else
+            return value >= high || value <= low;
+    }
+
+    public static byte SubMod8(this byte value1, byte value2)
+    {
+        if (value1 < value2)
+            return (byte)(value1 + 8 - value2);
+        else
+            return (byte)(value1 - value2);
+    }
 }

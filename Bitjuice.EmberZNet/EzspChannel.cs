@@ -5,7 +5,7 @@ namespace Bitjuice.EmberZNet;
 
 public class EzspChannel
 {
-    private readonly AshChannel channel;
+    private readonly AshDuplexChannel channel;
     private byte msgIndex;
     private byte version;
     private TaskCompletionSource<ReadOnlyMemory<byte>>?[] tcss = new TaskCompletionSource<ReadOnlyMemory<byte>>[256];
@@ -14,7 +14,7 @@ public class EzspChannel
 
     public EzspChannel(Stream stream)
     {
-        channel = new AshChannel(stream)
+        channel = new AshDuplexChannel(stream)
         {
             DataReceived = DataReceived
         };
@@ -57,7 +57,7 @@ public class EzspChannel
         return EzspSerializer.Deserialize<TResponse>(responseBytes.Span.ToArray());
     }
 
-    public async Task<ReadOnlyMemory<byte>> SendAsync(EzspCommand cmd, params byte[] data)
+    public Task<ReadOnlyMemory<byte>> SendAsync(EzspCommand cmd, params byte[] data)
     {
         var tcs = new TaskCompletionSource<ReadOnlyMemory<byte>>();
         tcss[msgIndex] = tcs;
@@ -86,8 +86,8 @@ public class EzspChannel
         }
 
         data.CopyTo(request.AsSpan(i));
-        await channel.SendAsync(request);
-        return await tcs.Task;
+        channel.AddToQueue(request);
+        return tcs.Task;
     }
 
     private void DataReceived(byte[] data)

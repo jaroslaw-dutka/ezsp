@@ -3,22 +3,26 @@ using Bitjuice.EmberZNet.Ash.Utils;
 
 namespace Bitjuice.EmberZNet.Ash;
 
-public class AshChannel
+public class AshDuplexChannel
 {
     private readonly ConcurrentQueue<AshDataSendTask> sendQueue = new();
+    private AshDataSendTask?[] ackQueue = new AshDataSendTask?[8];
 
     private readonly AshReader reader;
     private readonly AshWriter writer;
+
+    private byte txWindow = 1;
 
     private CancellationTokenSource? cts;
     private byte outgoingFrame;
     private byte outgoingFrameAck;
     private byte incomingFrame;
+    private byte incomingFrameAck;
     private sbyte ackPending;
 
     public Action<byte[]>? DataReceived { get; set; }
 
-    public AshChannel(Stream stream)
+    public AshDuplexChannel(Stream stream)
     {
         reader = new AshReader(stream, 256, true);
         writer = new AshWriter(stream, 256, true);
@@ -53,11 +57,9 @@ public class AshChannel
         return Task.CompletedTask;
     }
 
-    public Task SendAsync(byte[] data)
+    public void AddToQueue(byte[] data)
     {
-        var tcs = new TaskCompletionSource();
-        sendQueue.Enqueue(new AshDataSendTask { Data = data, Tcs = tcs });
-        return tcs.Task;
+        sendQueue.Enqueue(new AshDataSendTask { Data = data });
     }
 
     private async Task SendLoop(CancellationToken cancellationToken)
@@ -72,23 +74,41 @@ public class AshChannel
                     await writer.WriteNakAsync(incomingFrame, cancellationToken);
                 ackPending = 0;
             }
-            else if (outgoingFrame != outgoingFrameAck || !sendQueue.TryDequeue(out var item))
+
+            // TODO: priority queue?
+            for (var i = outgoingFrameAck; i != outgoingFrame; i = i.IncMod8())
             {
-                try
-                {
-                    await Task.Delay(1, cancellationToken);
-                }
-                catch (TaskCanceledException)
-                {
-                    // ignore
-                }
+                var resendItem = ackQueue[i];
+                if (resendItem is null)
+                    continue;
+                if (resendItem.Retries > 3)
+                    throw new Exception("dupa");
+                if (DateTime.UtcNow - resendItem.SendTime <= TimeSpan.FromMilliseconds(100)) 
+                    continue;
+                await writer.WriteDataAsync(i, incomingFrame, true, resendItem.Data, cancellationToken);
+                resendItem.Retries++;
+                resendItem.SendTime = DateTime.UtcNow;
             }
-            else
+
+            if (outgoingFrame.SubMod8(outgoingFrameAck) >= txWindow)
             {
-                await writer.WriteDataAsync(outgoingFrame, incomingFrame, false, item.Data, cancellationToken);
-                outgoingFrame = outgoingFrame.IncMod8();
-                item.Tcs.SetResult();
+                await Wait(100, cancellationToken);
+                continue;
             }
+
+            if (!sendQueue.TryDequeue(out var newItem))
+            {
+                await Wait(100, cancellationToken);
+                continue;
+            }
+
+            await writer.WriteDataAsync(outgoingFrame, incomingFrame, false, newItem.Data, cancellationToken);
+
+            newItem.Retries++;
+            newItem.SendTime = DateTime.UtcNow;
+
+            ackQueue[outgoingFrame] = newItem;
+            outgoingFrame = outgoingFrame.IncMod8();
         }
     }
 
@@ -108,39 +128,44 @@ public class AshChannel
 
             if (frame.Control.Type == AshFrameType.Ack)
             {
-                if (frame.Control.AckNumber == outgoingFrame)
-                {
+                if (frame.Control.AckNumber.InRangeMod8(outgoingFrameAck, outgoingFrame))
                     outgoingFrameAck = frame.Control.AckNumber;
-                    // incomingFrame = frame.Control.FrameNumber.IncMod8();
-                }
-                else
-                    ackPending = -1;
             }
 
             if (frame.Control.Type == AshFrameType.Nak)
             {
-                if (frame.Control.AckNumber == outgoingFrame)
+                if (frame.Control.AckNumber.InRangeMod8(outgoingFrameAck, outgoingFrame))
                 {
                     // TODO: handle NAK
                 }
-                else
-                    ackPending = -1;
             }
 
             if (frame.Control.Type == AshFrameType.Data)
             {
-                if (frame.Control.FrameNumber != incomingFrame)
+                if (!frame.Control.AckNumber.InRangeMod8(outgoingFrameAck, outgoingFrame))
                 {
                     ackPending = -1;
                 }
                 else
                 {
-                    outgoingFrameAck = frame.Control.AckNumber;
                     ackPending = 1;
                     incomingFrame = frame.Control.FrameNumber.IncMod8();
+                    outgoingFrameAck = frame.Control.AckNumber;
                     DataReceived?.Invoke(frame.Data);
                 }
             }
+        }
+    }
+
+    private static async Task Wait(int delay, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await Task.Delay(delay, cancellationToken);
+        }
+        catch (TaskCanceledException)
+        {
+            // ignore
         }
     }
 }

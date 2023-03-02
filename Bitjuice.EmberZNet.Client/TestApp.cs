@@ -21,9 +21,12 @@ public class TestApp
 
     public async Task RunAsync()
     {
-        await ezsp.SetTimerAsync(1);
-        for(var i=0; i<100; i++)
-            ezsp.EchoAsync("test");
+        var aa = await ezsp.GetConfigurationValueAsync(EzspConfigId.TxK);
+
+        // await ConfigureAsync();
+        // await ezsp.SetTimerAsync(1);
+        //for (var i=0; i<10; i++)
+        //    ezsp.EchoAsync("test");
 
         // await ezsp.SetMfgTokenAsync(EzspMfgTokenId.MFG_BOARD_NAME, "dupadupadupablad");
         // var aaa = await ezsp.GetMfgTokenAsync(EzspMfgTokenId.MFG_BOARD_NAME);
@@ -44,18 +47,18 @@ public class TestApp
         await ezsp.SetConfigurationValueAsync(EzspConfigId.StackProfile, version.StackType);
         await ezsp.SetConfigurationValueAsync(EzspConfigId.SecurityLevel, 5);
         await ezsp.SetConfigurationValueAsync(EzspConfigId.SupportedNetworks, 1);
-        await ezsp.SetConfigurationValueAsync(EzspConfigId.PacketBufferCount, 64);
+        await ezsp.SetConfigurationValueAsync(EzspConfigId.PacketBufferCount, 128);
 
-        var zzz = await ezsp.Channel.SendAsync<EzspAddEndpointRequest, EzspAddEndpointResponse>(EzspCommand.AddEndpoint, new EzspAddEndpointRequest()
-        {
-            Endpoint = 1,
-            ProfileId = 0,
-            DeviceId = 0,
-            InputClusterCount = 3,
-            InputClusterList = new ushort[] { 0, 3, 6 },
-            OutputClusterCount = 1,
-            OutputClusterList = new ushort[] { 10 }
-        });
+        // var zzz = await ezsp.Channel.SendAsync<EzspAddEndpointRequest, EzspAddEndpointResponse>(EzspCommand.AddEndpoint, new EzspAddEndpointRequest()
+        // {
+        //     Endpoint = 1,
+        //     ProfileId = 0,
+        //     DeviceId = 0,
+        //     InputClusterCount = 3,
+        //     InputClusterList = new ushort[] { 0, 3, 6 },
+        //     OutputClusterCount = 1,
+        //     OutputClusterList = new ushort[] { 10 }
+        // });
         // var xxx = await channel.SendAsync<EzspAddEndpointRequest, EzspAddEndpointResponse>(EzspCommand.AddEndpoint, new EzspAddEndpointRequest()
         // {
         //     Endpoint = 2,

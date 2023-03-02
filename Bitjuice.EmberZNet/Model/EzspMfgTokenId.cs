@@ -15,5 +15,5 @@ public enum EzspMfgTokenId: byte
     MfgInstallationCode = 0x0A,
     StackCalFilter = 0x0B,
     MfgCustomEui64 = 0x0C,
-    MfgCtune = 0x0D,
+    MfgCtune = 0x0D
 }

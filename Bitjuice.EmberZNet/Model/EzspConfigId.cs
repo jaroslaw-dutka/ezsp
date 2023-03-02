@@ -44,5 +44,7 @@ public enum EzspConfigId: byte
     CtuneValue = 0x39,
     AssumeTcConcentratorType = 0x40,
     GpProxyTableSize = 0x41,
-    GpSinkTableSize = 0x42
+    GpSinkTableSize = 0x42,
+
+    TxK = 0x83,
 }
