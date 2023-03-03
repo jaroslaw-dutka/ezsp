@@ -7,7 +7,7 @@ public class EzspApi
 {
     public EzspChannel Channel { get; }
 
-    public EzspApi(Stream stream): this(new EzspChannel(stream))
+    public EzspApi(Stream stream, IEzspCallbackHandler callbackHandler): this(new EzspChannel(stream, callbackHandler))
     {
     }
 

@@ -3,21 +3,18 @@ using Bitjuice.EmberZNet.Ash;
 
 namespace Bitjuice.EmberZNet;
 
-public class EzspChannel
+public class EzspChannel: IAshDataHandler
 {
     private readonly AshDuplexChannel channel;
+    private readonly IEzspCallbackHandler callbackHandler;
     private byte msgIndex;
     private byte version;
     private TaskCompletionSource<ReadOnlyMemory<byte>>?[] tcss = new TaskCompletionSource<ReadOnlyMemory<byte>>[256];
 
-    public Action<byte[]>? CallbackReceived { get; set; }
-
-    public EzspChannel(Stream stream)
+    public EzspChannel(Stream stream, IEzspCallbackHandler callbackHandler)
     {
-        channel = new AshDuplexChannel(stream)
-        {
-            DataReceived = DataReceived
-        };
+        channel = new AshDuplexChannel(stream, this);
+        this.callbackHandler = callbackHandler;
     }
 
     public async Task ConnectAsync(CancellationToken cancellationToken)
@@ -86,11 +83,11 @@ public class EzspChannel
         }
 
         data.CopyTo(request.AsSpan(i));
-        channel.AddToQueue(request);
+        channel.SendQueue(request);
         return tcs.Task;
     }
 
-    private void DataReceived(byte[] data)
+    public async Task HandleAsync(byte[] data)
     {
         var i = data[0];
         var cts = tcss[i];
@@ -99,6 +96,6 @@ public class EzspChannel
         if (cts is not null)
             cts.SetResult(memory);
         else
-            CallbackReceived?.Invoke(data);
+            await callbackHandler.HandleCallbackAsync(data);
     }
 }

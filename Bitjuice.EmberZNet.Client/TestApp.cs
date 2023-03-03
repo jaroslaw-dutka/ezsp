@@ -5,28 +5,23 @@ using Bitjuice.EmberZNet.Model;
 
 namespace Bitjuice.EmberZNet.Client;
 
-public class TestApp
+public class TestApp: IEzspCallbackHandler
 {
     private EzspApi ezsp;
 
-    public async Task ConnectAsync()
+    public async Task ConnectAsync(CancellationToken cancellationToken)
     {
         var tcp = new TcpClient();
         await tcp.ConnectAsync("192.168.1.40", 8888);
-        var channel = new EzspChannel(tcp.GetStream());
-        await channel.ConnectAsync(CancellationToken.None);
-        channel.CallbackReceived += CallbackReceived;
-        ezsp = new EzspApi(channel);
+        // var channel = new EzspChannel(tcp.GetStream(), this);
+        // await channel.ConnectAsync(CancellationToken.None);
+        ezsp = new EzspApi(tcp.GetStream(), this);
+        await ezsp.Channel.ConnectAsync(cancellationToken);
     }
 
-    public async Task RunAsync()
+    public async Task RunAsync(CancellationToken cancellationToken)
     {
-        var aa = await ezsp.GetConfigurationValueAsync(EzspConfigId.TxK);
-
-        // await ConfigureAsync();
-        // await ezsp.SetTimerAsync(1);
-        //for (var i=0; i<10; i++)
-        //    ezsp.EchoAsync("test");
+        //var aa = await ezsp.GetConfigurationValueAsync(EzspConfigId.TxK);
 
         // await ezsp.SetMfgTokenAsync(EzspMfgTokenId.MFG_BOARD_NAME, "dupadupadupablad");
         // var aaa = await ezsp.GetMfgTokenAsync(EzspMfgTokenId.MFG_BOARD_NAME);
@@ -34,11 +29,11 @@ public class TestApp
         // await channel.SendAsync<EzspResponse>(EzspCommand.GetNumStoredBeacons);
         // var beaconResponse = await channel.SendAsync<EzspGetFirstBeaconResponse>(EzspCommand.GetFirstBeacon);
 
-        // await ConfigureAsync();
-        // await InitNetworkAsync();
-        // await InitSecurityAsync();
+        await ConfigureAsync();
+        await InitNetworkAsync();
+        await InitSecurityAsync();
         // await ScanAsync();
-        // await JoinNetworkAsync();
+        await JoinNetworkAsync();
     }
 
     private async Task ConfigureAsync()
@@ -49,16 +44,16 @@ public class TestApp
         await ezsp.SetConfigurationValueAsync(EzspConfigId.SupportedNetworks, 1);
         await ezsp.SetConfigurationValueAsync(EzspConfigId.PacketBufferCount, 128);
 
-        // var zzz = await ezsp.Channel.SendAsync<EzspAddEndpointRequest, EzspAddEndpointResponse>(EzspCommand.AddEndpoint, new EzspAddEndpointRequest()
-        // {
-        //     Endpoint = 1,
-        //     ProfileId = 0,
-        //     DeviceId = 0,
-        //     InputClusterCount = 3,
-        //     InputClusterList = new ushort[] { 0, 3, 6 },
-        //     OutputClusterCount = 1,
-        //     OutputClusterList = new ushort[] { 10 }
-        // });
+        var zzz = await ezsp.Channel.SendAsync<EzspAddEndpointRequest, EzspAddEndpointResponse>(EzspCommand.AddEndpoint, new EzspAddEndpointRequest()
+        {
+            Endpoint = 1,
+            ProfileId = ZigBeeProfileId.ZigbeeHomeAutomation,
+            DeviceId = ZigBeeDeviceId.OnOffSwitch,
+            InputClusterCount = 3,
+            InputClusterList = new ushort[] { 0 },
+            OutputClusterCount = 1,
+            OutputClusterList = new ushort[] { 0 }
+        });
         // var xxx = await channel.SendAsync<EzspAddEndpointRequest, EzspAddEndpointResponse>(EzspCommand.AddEndpoint, new EzspAddEndpointRequest()
         // {
         //     Endpoint = 2,
@@ -117,25 +112,24 @@ public class TestApp
         });
     }
 
-    private void CallbackReceived(byte[] bytes)
+    public async Task HandleCallbackAsync(byte[] data)
     {
-        var cmd = (EzspCommand)BinaryPrimitives.ReadUInt16BigEndian(bytes.AsSpan(3));
+        var cmd = (EzspCommand)BinaryPrimitives.ReadUInt16BigEndian(data.AsSpan(3));
 
         Console.WriteLine($"Callback {cmd}");
         Console.WriteLine();
 
         if (cmd == EzspCommand.StackStatusHandler)
         {
-            var aa = EzspSerializer.Deserialize<EzspStackStatusHandlerResponse>(bytes.AsSpan(5).ToArray());
+            var aa = EzspSerializer.Deserialize<EzspStackStatusHandlerResponse>(data.AsSpan(5).ToArray());
             if (aa.Status != EmberStatus.Success)
-                Task.Delay(2000).ContinueWith(async (obj) =>
-                {
-                    await JoinNetworkAsync();
-                });
+                await Task.Delay(2000);
+                
+            await JoinNetworkAsync();
         }
         if (cmd == EzspCommand.IncomingMessageHandler)
         {
-            var aa = EzspSerializer.Deserialize<EzspIncomingMessageHandlerResponse>(bytes.AsSpan(5).ToArray());
+            var aa = EzspSerializer.Deserialize<EzspIncomingMessageHandlerResponse>(data.AsSpan(5).ToArray());
             var bb = 2;
         }
 

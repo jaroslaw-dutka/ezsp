@@ -36,7 +36,7 @@ public class AshWriter
     public async Task WriteNakAsync(byte ackNumber, CancellationToken cancellationToken) 
         => await WriteAsync(AshControlByteFactory.Nak(ackNumber, false), Array.Empty<byte>(), cancellationToken);
 
-    private async Task WriteAsync(byte ctrl, byte[] data, CancellationToken cancellationToken)
+    public async Task WriteAsync(byte ctrl, byte[] data, CancellationToken cancellationToken)
     {
         if (!AshControlByte.TryParse(ctrl, out var ctrlByte))
             throw new ArgumentException("Control byte is invalid", nameof(ctrl));
