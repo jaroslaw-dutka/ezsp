@@ -35,6 +35,8 @@ public class TestApp: IEzspCallbackHandler
         await InitSecurityAsync();
         // await ScanAsync();
         await JoinNetworkAsync();
+
+        await ezsp.Channel.DisconnectAsync(CancellationToken.None);
     }
 
     private async Task ConfigureAsync()

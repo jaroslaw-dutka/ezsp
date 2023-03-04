@@ -38,19 +38,26 @@ public class AshDuplexChannel
         await writer.WriteResetAsync(cancellationToken);
 
         var frame = await reader.ReadAsync(cancellationToken);
-        while (!frame.IsValid || frame.Control.Type != AshFrameType.ResetAck) 
-            frame = await reader.ReadAsync(cancellationToken);
+        while (!frame.IsValid || frame.Control.Type != AshFrameType.ResetAck)
+            frame = await reader.ReadAsync(cancellationToken); // Discard any invalid or not ResetAck frames
 
         cts = new CancellationTokenSource();
 
+        #pragma warning disable CS4014
         Task.Run(async () => await SendLoop(cts.Token), cts.Token);
         Task.Run(async () => await ReadLoop(cts.Token), cts.Token);
+        #pragma warning restore CS4014
     }
 
     public Task DisconnectAsync(CancellationToken cancellationToken)
     {
         Reset();
         return Task.CompletedTask;
+    }
+
+    public void SendQueue(byte[] data)
+    {
+        sendQueue.Enqueue(new AshSendDataTask(data));
     }
 
     private void Reset()
@@ -67,63 +74,65 @@ public class AshDuplexChannel
             ackQueue[i] = null;
     }
 
-    public void SendQueue(byte[] data)
-    {
-        sendQueue.Enqueue(new AshSendDataTask(data));
-    }
-
     private async Task SendLoop(CancellationToken cancellationToken)
     {
         while (!cancellationToken.IsCancellationRequested)
         {
-            while (ackPending)
+            try
             {
+                while (ackPending)
+                {
+                    if (rejectCondition)
+                        await writer.WriteNakAsync(incomingFrameNext, cancellationToken);
+                    else
+                        await writer.WriteAckAsync(incomingFrameNext, cancellationToken);
+
+                    ackPending = false;
+                }
+
+                for (var i = outgoingFrameAck; i != outgoingFrameNext; i = i.IncMod8())
+                {
+                    var resendItem = ackQueue[i];
+                    if (resendItem is null)
+                        continue;
+                    if (resendItem.Retries > 3)
+                        throw new Exception("Error");
+                    if (!resendItem.ShouldBeResend())
+                        continue;
+                    await writer.WriteDataAsync(i, incomingFrameNext, true, resendItem.Data, cancellationToken);
+                    resendItem.MarkAsSent();
+                }
+
                 if (rejectCondition)
-                    await writer.WriteNakAsync(incomingFrameNext, cancellationToken);
-                else
-                    await writer.WriteAckAsync(incomingFrameNext, cancellationToken);
-
-                ackPending = false;
-            }
-
-            for (var i = outgoingFrameAck; i != outgoingFrameNext; i = i.IncMod8())
-            {
-                var resendItem = ackQueue[i];
-                if (resendItem is null)
+                {
+                    Console.WriteLine("Reject condition");
+                    await Task.Delay(100, cancellationToken);
                     continue;
-                if (resendItem.Retries > 3)
-                    throw new Exception("Error");
-                if (!resendItem.ShouldBeResend()) 
+                }
+
+                if (outgoingFrameNext.SubMod8(outgoingFrameAck) >= OutgoingWindow)
+                {
+                    await Task.Delay(100, cancellationToken);
                     continue;
-                await writer.WriteDataAsync(i, incomingFrameNext, true, resendItem.Data, cancellationToken);
-                resendItem.MarkAsSent();
-            }
+                }
 
-            if (rejectCondition)
+                if (!sendQueue.TryDequeue(out var newItem))
+                {
+                    await Task.Delay(100, cancellationToken);
+                    continue;
+                }
+
+                await writer.WriteDataAsync(outgoingFrameNext, incomingFrameNext, false, newItem.Data, cancellationToken);
+
+                newItem.MarkAsSent();
+
+                ackQueue[outgoingFrameNext] = newItem;
+                outgoingFrameNext = outgoingFrameNext.IncMod8();
+            }
+            catch (Exception ex)
             {
-                Console.WriteLine("Reject condition");
-                await Wait(100, cancellationToken);
-                continue;
+                Console.WriteLine(ex.Message);
             }
-
-            if (outgoingFrameNext.SubMod8(outgoingFrameAck) >= OutgoingWindow)
-            {
-                await Wait(100, cancellationToken);
-                continue;
-            }
-
-            if (!sendQueue.TryDequeue(out var newItem))
-            {
-                await Wait(100, cancellationToken);
-                continue;
-            }
-
-            await writer.WriteDataAsync(outgoingFrameNext, incomingFrameNext, false, newItem.Data, cancellationToken);
-
-            newItem.MarkAsSent();
-
-            ackQueue[outgoingFrameNext] = newItem;
-            outgoingFrameNext = outgoingFrameNext.IncMod8();
         }
     }
 
@@ -131,75 +140,70 @@ public class AshDuplexChannel
     {
         while (!cancellationToken.IsCancellationRequested)
         {
-            var frame = await reader.ReadAsync(cancellationToken);
-            if (!frame.IsValid)
+            try
             {
-                Console.WriteLine("Invalid frame: " + frame.Error);
-                while (ackPending)
-                    await Task.Delay(10, cancellationToken);
-                rejectCondition = true;
-                ackPending = true;
-                continue;
-            }
-
-            if (frame.Control.Type == AshFrameType.Error)
-                throw new AshException(frame.Data[0], frame.Data[1]);
-
-            if (frame.Control.Type == AshFrameType.Ack)
-            {
-                if (frame.Control.AckNumber.InRangeMod8(outgoingFrameAck, outgoingFrameNext))
+                var frame = await reader.ReadAsync(cancellationToken);
+                if (!frame.IsValid)
                 {
-                    outgoingFrameAck = frame.Control.AckNumber;
-                }
-            }
-
-            if (frame.Control.Type == AshFrameType.Nak)
-            {
-                if (frame.Control.AckNumber.InRangeMod8(outgoingFrameAck, outgoingFrameNext))
-                {
-                    for (var i = frame.Control.AckNumber.IncMod8(); i != outgoingFrameNext; i = i.IncMod8()) 
-                        ackQueue[i]?.MarkAsNotAccepted();
-                }
-            }
-
-            if (frame.Control.Type == AshFrameType.Data)
-            {
-                if (frame.Control.FrameNumber == incomingFrameNext && frame.Control.AckNumber.InRangeMod8(outgoingFrameAck, outgoingFrameNext))
-                {
-                    ackQueue[frame.Control.FrameNumber] = null;
-
-                    incomingFrameNext = frame.Control.FrameNumber.IncMod8();
-                    outgoingFrameAck = frame.Control.AckNumber;
-
-                    rejectCondition = false;
+                    Console.WriteLine("Invalid frame: " + frame.Error);
+                    while (ackPending)
+                        await Task.Delay(10, cancellationToken);
+                    rejectCondition = true;
                     ackPending = true;
-
-                    Task.Run(async () => { await handler.HandleAsync(frame.Data); });
+                    continue;
                 }
-                else
+
+                if (frame.Control.Type == AshFrameType.Error)
+                    throw new AshException(frame.Data[0], frame.Data[1]);
+
+                if (frame.Control.Type == AshFrameType.Ack)
                 {
-                    if (!frame.Control.Retransmission)
+                    if (frame.Control.AckNumber.InRangeMod8(outgoingFrameAck, outgoingFrameNext))
                     {
-                        while (ackPending) 
-                            await Task.Delay(10, cancellationToken);
-                        if (!rejectCondition)
-                            ackPending = true;
-                        rejectCondition = true;
+                        outgoingFrameAck = frame.Control.AckNumber;
+                    }
+                }
+
+                if (frame.Control.Type == AshFrameType.Nak)
+                {
+                    if (frame.Control.AckNumber.InRangeMod8(outgoingFrameAck, outgoingFrameNext))
+                    {
+                        for (var i = frame.Control.AckNumber.IncMod8(); i != outgoingFrameNext; i = i.IncMod8())
+                            ackQueue[i]?.MarkAsNotAccepted();
+                    }
+                }
+
+                if (frame.Control.Type == AshFrameType.Data)
+                {
+                    if (frame.Control.FrameNumber == incomingFrameNext && frame.Control.AckNumber.InRangeMod8(outgoingFrameAck, outgoingFrameNext))
+                    {
+                        ackQueue[frame.Control.FrameNumber] = null;
+
+                        incomingFrameNext = frame.Control.FrameNumber.IncMod8();
+                        outgoingFrameAck = frame.Control.AckNumber;
+
+                        rejectCondition = false;
+                        ackPending = true;
+
+                        Task.Run(async () => { await handler.HandleAsync(frame.Data); });
+                    }
+                    else
+                    {
+                        if (!frame.Control.Retransmission)
+                        {
+                            while (ackPending)
+                                await Task.Delay(10, cancellationToken);
+                            if (!rejectCondition)
+                                ackPending = true;
+                            rejectCondition = true;
+                        }
                     }
                 }
             }
-        }
-    }
-
-    private static async Task Wait(int delay, CancellationToken cancellationToken)
-    {
-        try
-        {
-            await Task.Delay(delay, cancellationToken);
-        }
-        catch (TaskCanceledException)
-        {
-            // ignore
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.Message);
+            }
         }
     }
 }
