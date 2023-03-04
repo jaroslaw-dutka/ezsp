@@ -35,8 +35,6 @@ public class TestApp: IEzspCallbackHandler
         await InitSecurityAsync();
         // await ScanAsync();
         await JoinNetworkAsync();
-
-        await ezsp.Channel.DisconnectAsync(CancellationToken.None);
     }
 
     private async Task ConfigureAsync()
@@ -52,7 +50,7 @@ public class TestApp: IEzspCallbackHandler
             Endpoint = 1,
             ProfileId = ZigBeeProfileId.ZigbeeHomeAutomation,
             DeviceId = ZigBeeDeviceId.OnOffSwitch,
-            InputClusterCount = 3,
+            InputClusterCount = 1,
             InputClusterList = new ushort[] { 0 },
             OutputClusterCount = 1,
             OutputClusterList = new ushort[] { 0 }
@@ -119,16 +117,17 @@ public class TestApp: IEzspCallbackHandler
     {
         var cmd = (EzspCommand)BinaryPrimitives.ReadUInt16BigEndian(data.AsSpan(3));
 
-        Console.WriteLine($"Callback {cmd}");
-        Console.WriteLine();
+        // Console.WriteLine($"Callback {cmd}");
+        // Console.WriteLine();
 
         if (cmd == EzspCommand.StackStatusHandler)
         {
             var aa = EzspSerializer.Deserialize<EzspStackStatusHandlerResponse>(data.AsSpan(5).ToArray());
-            if (aa.Status != EmberStatus.Success)
+            if (aa.Status == EmberStatus.JoinFailed)
+            {
                 await Task.Delay(2000);
-            
-            await JoinNetworkAsync();
+                await JoinNetworkAsync();
+            }
         }
         if (cmd == EzspCommand.IncomingMessageHandler)
         {

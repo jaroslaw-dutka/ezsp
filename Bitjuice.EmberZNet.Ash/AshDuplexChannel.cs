@@ -105,7 +105,6 @@ public class AshDuplexChannel
 
                 if (rejectCondition)
                 {
-                    Console.WriteLine("Reject condition");
                     await Task.Delay(100, cancellationToken);
                     continue;
                 }
