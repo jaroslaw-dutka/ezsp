@@ -25,6 +25,9 @@ public class AshReader
         if (length < 0)
             return AshFrame.Invalid(AshFrameError.EndOfStream);
 
+        if (length < 3)
+            return AshFrame.Invalid(AshFrameError.MessageTooShort);
+
         if (length > buffer.Length)
             return AshFrame.Invalid(AshFrameError.BufferOverflow);
 
@@ -37,23 +40,23 @@ public class AshReader
 
         var computedCrc = Crc16.CcittFalse(buffer.AsSpan(0, length - 2));
         var receivedCrc = BinaryPrimitives.ReadUInt16BigEndian(buffer.AsSpan(length - 2, 2));
-
+        
         switch (ctrl.Type)
         {
             case AshFrameType.Data:
                 if (!data.Length.IsBetween(3, 128))
-                    return AshFrame.Invalid(AshFrameError.InvalidSize);
+                    return AshFrame.Invalid(AshFrameError.InvalidPayloadSize);
                 break;
             case AshFrameType.Ack:
             case AshFrameType.Nak:
             case AshFrameType.Reset:
                 if (data.Length > 0)
-                    return AshFrame.Invalid(AshFrameError.InvalidSize);
+                    return AshFrame.Invalid(AshFrameError.InvalidPayloadSize);
                 break;
             case AshFrameType.ResetAck:
             case AshFrameType.Error:
                 if (data.Length != 2)
-                    return AshFrame.Invalid(AshFrameError.InvalidSize);
+                    return AshFrame.Invalid(AshFrameError.InvalidPayloadSize);
                 break;
             default:
                 throw new ArgumentOutOfRangeException();
@@ -68,6 +71,8 @@ public class AshReader
             Console.WriteLine("In " + DateTime.Now.ToString("O"));
             Console.WriteLine($"Ctrl: {ctrl}");
             Console.WriteLine($"Data: {BitConverter.ToString(data).Replace("-", " ")}");
+            // Console.WriteLine($"Buffer: {BitConverter.ToString(buffer.AsSpan(0, length).ToArray()).Replace("-", " ")}");
+            // Console.WriteLine($"Crc: {receivedCrc.ToString("X").Replace("-", " ")}");
             Console.WriteLine();
 
             return AshFrame.Invalid(AshFrameError.InvalidCrc);
@@ -79,6 +84,8 @@ public class AshReader
             Console.WriteLine("In " + DateTime.Now.ToString("O"));
             Console.WriteLine($"Ctrl: {ctrl}");
             Console.WriteLine($"Data: {BitConverter.ToString(data).Replace("-", " ")}");
+            // Console.WriteLine($"Buffer: {BitConverter.ToString(buffer.AsSpan(0, length).ToArray()).Replace("-", " ")}");
+            // Console.WriteLine($"Crc: {receivedCrc.ToString("X").Replace("-", " ")}");
             Console.WriteLine();
         }
 
@@ -111,6 +118,8 @@ public class AshReader
                     index = 0;
                     continue;
                 case AshReservedByte.Flag:
+                    if (index == 0)
+                        continue;
                     if (substitute)
                         substitute = false;
                     else

@@ -23,8 +23,6 @@ public class AshDuplexChannel
     private bool ackPending;
     private bool rejectCondition;
 
-    public Action<byte[]>? OnDataReceived { get; set; }
-
     public AshDuplexChannel(Stream stream, IAshDataHandler handler)
     {
         reader = new AshReader(stream, 256, true);
@@ -137,6 +135,8 @@ public class AshDuplexChannel
             if (!frame.IsValid)
             {
                 Console.WriteLine("Invalid frame: " + frame.Error);
+                while (ackPending)
+                    await Task.Delay(10, cancellationToken);
                 rejectCondition = true;
                 ackPending = true;
                 continue;
@@ -164,29 +164,28 @@ public class AshDuplexChannel
 
             if (frame.Control.Type == AshFrameType.Data)
             {
-                // if (frame.Control.Retransmission && frame.Control.AckNumber.InRangeMod8(outgoingFrameAck, outgoingFrameNext))
-                // {
-                //     // TODO
-                //     throw new NotImplementedException();
-                // }
-                // else 
-                if (frame.Control.FrameNumber != incomingFrameNext || !frame.Control.AckNumber.InRangeMod8(outgoingFrameAck, outgoingFrameNext))
+                if (frame.Control.FrameNumber == incomingFrameNext && frame.Control.AckNumber.InRangeMod8(outgoingFrameAck, outgoingFrameNext))
                 {
-                    if (!rejectCondition) 
-                        ackPending = true;
-                    rejectCondition = true;
-                }
-                else
-                {
-                    ackQueue[incomingFrameNext] = null;
+                    ackQueue[frame.Control.FrameNumber] = null;
 
-                    incomingFrameNext = incomingFrameNext.IncMod8();
+                    incomingFrameNext = frame.Control.FrameNumber.IncMod8();
                     outgoingFrameAck = frame.Control.AckNumber;
 
                     rejectCondition = false;
                     ackPending = true;
 
                     Task.Run(async () => { await handler.HandleAsync(frame.Data); });
+                }
+                else
+                {
+                    if (!frame.Control.Retransmission)
+                    {
+                        while (ackPending) 
+                            await Task.Delay(10, cancellationToken);
+                        if (!rejectCondition)
+                            ackPending = true;
+                        rejectCondition = true;
+                    }
                 }
             }
         }

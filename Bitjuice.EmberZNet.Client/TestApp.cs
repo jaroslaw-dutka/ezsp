@@ -21,8 +21,9 @@ public class TestApp: IEzspCallbackHandler
 
     public async Task RunAsync(CancellationToken cancellationToken)
     {
+        // for (var i = 0; i < 100; i++)
+        //     await ezsp.EchoAsync("Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry");
         //var aa = await ezsp.GetConfigurationValueAsync(EzspConfigId.TxK);
-
         // await ezsp.SetMfgTokenAsync(EzspMfgTokenId.MFG_BOARD_NAME, "dupadupadupablad");
         // var aaa = await ezsp.GetMfgTokenAsync(EzspMfgTokenId.MFG_BOARD_NAME);
         // var bbb = await ezsp.GetMfgTokenAsync(EzspMfgTokenId.MFG_MANUF_ID);
@@ -124,7 +125,7 @@ public class TestApp: IEzspCallbackHandler
             var aa = EzspSerializer.Deserialize<EzspStackStatusHandlerResponse>(data.AsSpan(5).ToArray());
             if (aa.Status != EmberStatus.Success)
                 await Task.Delay(2000);
-                
+            
             await JoinNetworkAsync();
         }
         if (cmd == EzspCommand.IncomingMessageHandler)

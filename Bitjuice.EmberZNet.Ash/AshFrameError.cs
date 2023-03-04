@@ -4,7 +4,8 @@ public enum AshFrameError
 {
     InvalidControl,
     InvalidCrc,
-    InvalidSize,
+    InvalidPayloadSize,
     EndOfStream,
+    MessageTooShort,
     BufferOverflow
 }
