@@ -25,20 +25,20 @@ public class AshWriter
         => await stream.WriteAsync(new[] { (byte)AshReservedByte.Cancel }, cancellationToken);
 
     public async Task WriteResetAsync(CancellationToken cancellationToken) 
-        => await WriteAsync(AshControlByteFactory.Reset(), Array.Empty<byte>(), cancellationToken);
+        => await WriteAsync(AshCtrl.Reset(), Array.Empty<byte>(), cancellationToken);
 
     public async Task WriteDataAsync(byte frmNumber, byte ackNumber, bool retry, byte[] data, CancellationToken cancellationToken) 
-        => await WriteAsync(AshControlByteFactory.Data(frmNumber, ackNumber, retry), data, cancellationToken);
+        => await WriteAsync(AshCtrl.Data(frmNumber, ackNumber, retry), data, cancellationToken);
 
     public async Task WriteAckAsync(byte ackNumber, CancellationToken cancellationToken) 
-        => await WriteAsync(AshControlByteFactory.Ack(ackNumber, false), Array.Empty<byte>(), cancellationToken);
+        => await WriteAsync(AshCtrl.Ack(ackNumber, false), Array.Empty<byte>(), cancellationToken);
 
     public async Task WriteNakAsync(byte ackNumber, CancellationToken cancellationToken) 
-        => await WriteAsync(AshControlByteFactory.Nak(ackNumber, false), Array.Empty<byte>(), cancellationToken);
+        => await WriteAsync(AshCtrl.Nak(ackNumber, false), Array.Empty<byte>(), cancellationToken);
 
     public async Task WriteAsync(byte ctrl, byte[] data, CancellationToken cancellationToken)
     {
-        if (!AshControlByte.TryParse(ctrl, out var ctrlByte))
+        if (!AshCtrl.TryParse(ctrl, out var ctrlByte))
             throw new ArgumentException("Control byte is invalid", nameof(ctrl));
 
         if (verbose)

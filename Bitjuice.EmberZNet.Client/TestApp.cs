@@ -25,16 +25,13 @@ public class TestApp: IEzspCallbackHandler
         await ConfigureAsync();
         await SetEndpoints();
         var status = await InitNetworkAsync();
-        if (status != EmberStatus.NetworkUp)
+        if (status == EmberStatus.NotJoined)
         {
-            await LeaveNetwork();
-            await InitSecurityAsync();
+            Console.WriteLine("Joining network");
+            // await LeaveNetwork();
             // await ScanAsync();
+            await InitSecurityAsync();
             await JoinNetworkAsync();
-        }
-        else
-        {
-            Console.WriteLine("Network connected");
         }
     }
 

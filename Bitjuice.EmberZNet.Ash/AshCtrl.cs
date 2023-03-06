@@ -2,24 +2,29 @@
 
 namespace Bitjuice.EmberZNet.Ash;
 
-public class AshControlByte
+public class AshCtrl
 {
     private const byte AckMask = 0xE0;
     private const byte DataMask = 0x80;
 
     public AshFrameType Type { get; set; }
     public byte FrameNumber { get; set; }        // Data
-    public bool Retransmission { get; set; }     // Data
     public byte AckNumber { get; set; }          // Data, Ack, Nak
+    public bool Retransmission { get; set; }     // Data
     public bool NotReady { get; set; }           // Ack, Nak
 
-    private AshControlByte()
+    private AshCtrl()
     {
     }
 
-    public static bool TryParse(byte b, out AshControlByte ctrl)
+    public static byte Reset() => (byte)AshFrameType.Reset;
+    public static byte Data(byte frmNum, byte ackNum, bool retry) => (byte)((frmNum & 0x07) << 4 | (retry ? 0x08 : 0x00) | (ackNum & 0x07));
+    public static byte Ack(byte ackNum, bool notReady) => (byte)((byte)AshFrameType.Ack | (notReady ? 0x08 : 0x00) | (ackNum & 0x07));
+    public static byte Nak(byte ackNum, bool notReady) => (byte)((byte)AshFrameType.Nak | (notReady ? 0x08 : 0x00) | (ackNum & 0x07));
+
+    public static bool TryParse(byte b, out AshCtrl ctrl)
     {
-        ctrl = new AshControlByte();
+        ctrl = new AshCtrl();
         switch (b)
         {
             case (byte)AshFrameType.Error:

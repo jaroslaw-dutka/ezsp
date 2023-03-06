@@ -14,8 +14,8 @@ public class AshDuplexChannel
 
     private CancellationTokenSource? cts;
 
-    private readonly ConcurrentQueue<AshSendDataTask> sendQueue = new();
-    private readonly AshSendDataTask?[] ackQueue = new AshSendDataTask?[8];
+    private readonly ConcurrentQueue<AshSendTask> sendQueue = new();
+    private readonly AshSendTask?[] ackQueue = new AshSendTask?[8];
 
     private byte incomingFrameNext;
     private byte outgoingFrameNext;
@@ -37,9 +37,9 @@ public class AshDuplexChannel
         await writer.WriteDiscardAsync(cancellationToken);
         await writer.WriteResetAsync(cancellationToken);
 
-        var frame = await reader.ReadAsync(cancellationToken);
-        while (!frame.IsValid || frame.Control.Type != AshFrameType.ResetAck)
-            frame = await reader.ReadAsync(cancellationToken); // Discard any invalid or not ResetAck frames
+        var result = await reader.ReadAsync(cancellationToken);
+        while (result.Error is not null || result.Frame is null || result.Frame.Ctrl.Type != AshFrameType.ResetAck)
+            result = await reader.ReadAsync(cancellationToken); // Discard any invalid or not ResetAck frames
 
         cts = new CancellationTokenSource();
 
@@ -57,7 +57,7 @@ public class AshDuplexChannel
 
     public void SendQueue(byte[] data)
     {
-        sendQueue.Enqueue(new AshSendDataTask(data));
+        sendQueue.Enqueue(new AshSendTask(data));
     }
 
     private void Reset()
@@ -141,10 +141,10 @@ public class AshDuplexChannel
         {
             try
             {
-                var frame = await reader.ReadAsync(cancellationToken);
-                if (!frame.IsValid)
+                var result = await reader.ReadAsync(cancellationToken);
+                if (result.Error is not null || result.Frame is null)
                 {
-                    Console.WriteLine("Invalid frame: " + frame.Error);
+                    Console.WriteLine("Invalid frame: " + result.Error);
                     while (ackPending)
                         await Task.Delay(10, cancellationToken);
                     rejectCondition = true;
@@ -152,34 +152,36 @@ public class AshDuplexChannel
                     continue;
                 }
 
-                if (frame.Control.Type == AshFrameType.Error)
+                var frame = result.Frame;
+
+                if (frame.Ctrl.Type == AshFrameType.Error)
                     throw new AshException(frame.Data[0], frame.Data[1]);
 
-                if (frame.Control.Type == AshFrameType.Ack)
+                if (frame.Ctrl.Type == AshFrameType.Ack)
                 {
-                    if (frame.Control.AckNumber.InRangeMod8(outgoingFrameAck, outgoingFrameNext))
+                    if (frame.Ctrl.AckNumber.InRangeMod8(outgoingFrameAck, outgoingFrameNext))
                     {
-                        outgoingFrameAck = frame.Control.AckNumber;
+                        outgoingFrameAck = frame.Ctrl.AckNumber;
                     }
                 }
 
-                if (frame.Control.Type == AshFrameType.Nak)
+                if (frame.Ctrl.Type == AshFrameType.Nak)
                 {
-                    if (frame.Control.AckNumber.InRangeMod8(outgoingFrameAck, outgoingFrameNext))
+                    if (frame.Ctrl.AckNumber.InRangeMod8(outgoingFrameAck, outgoingFrameNext))
                     {
-                        for (var i = frame.Control.AckNumber.IncMod8(); i != outgoingFrameNext; i = i.IncMod8())
-                            ackQueue[i]?.MarkAsNotAccepted();
+                        for (var i = frame.Ctrl.AckNumber.IncMod8(); i != outgoingFrameNext; i = i.IncMod8())
+                            ackQueue[i]?.MarkAsRejected();
                     }
                 }
 
-                if (frame.Control.Type == AshFrameType.Data)
+                if (frame.Ctrl.Type == AshFrameType.Data)
                 {
-                    if (frame.Control.FrameNumber == incomingFrameNext && frame.Control.AckNumber.InRangeMod8(outgoingFrameAck, outgoingFrameNext))
+                    if (frame.Ctrl.FrameNumber == incomingFrameNext && frame.Ctrl.AckNumber.InRangeMod8(outgoingFrameAck, outgoingFrameNext))
                     {
-                        ackQueue[frame.Control.FrameNumber] = null;
+                        ackQueue[frame.Ctrl.FrameNumber] = null;
 
-                        incomingFrameNext = frame.Control.FrameNumber.IncMod8();
-                        outgoingFrameAck = frame.Control.AckNumber;
+                        incomingFrameNext = frame.Ctrl.FrameNumber.IncMod8();
+                        outgoingFrameAck = frame.Ctrl.AckNumber;
 
                         rejectCondition = false;
                         ackPending = true;
@@ -188,7 +190,7 @@ public class AshDuplexChannel
                     }
                     else
                     {
-                        if (!frame.Control.Retransmission)
+                        if (!frame.Ctrl.Retransmission)
                         {
                             while (ackPending)
                                 await Task.Delay(10, cancellationToken);

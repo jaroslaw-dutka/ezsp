@@ -1,31 +1,31 @@
 ﻿namespace Bitjuice.EmberZNet.Ash;
 
-internal class AshSendDataTask
+internal class AshSendTask
 {
     public byte[] Data { get; }
-    public bool NotAccepted { get; private set; }
+    public bool Rejected { get; private set; }
     public int Retries { get; private set; }
     public DateTime SendTime { get; private set; }
 
-    public AshSendDataTask(byte[] data)
+    public AshSendTask(byte[] data)
     {
         Data = data;
     }
 
     public void MarkAsSent()
     {
-        NotAccepted = false;
+        Rejected = false;
         Retries++;
         SendTime = DateTime.UtcNow;
     }
 
-    public void MarkAsNotAccepted()
+    public void MarkAsRejected()
     {
-        NotAccepted = true;
+        Rejected = true;
     }
 
     public bool ShouldBeResend()
     {
-        return NotAccepted || DateTime.UtcNow - SendTime > TimeSpan.FromMilliseconds(100);
+        return Rejected || DateTime.UtcNow - SendTime > TimeSpan.FromMilliseconds(100);
     }
 }

@@ -1,6 +1,6 @@
 ﻿namespace Bitjuice.EmberZNet.Ash;
 
-public enum AshFrameError
+public enum AshReadError
 {
     InvalidControl,
     InvalidCrc,

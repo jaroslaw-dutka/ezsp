@@ -18,21 +18,21 @@ public class AshReader
         buffer = new byte[bufferSize];
     }
 
-    public async Task<AshFrame> ReadAsync(CancellationToken cancellationToken)
+    public async Task<AshReadResult> ReadAsync(CancellationToken cancellationToken)
     {
         var length = await ReadFrameAsync(cancellationToken);
 
         if (length < 0)
-            return AshFrame.Invalid(AshFrameError.EndOfStream);
+            return AshReadResult.Fail(AshReadError.EndOfStream);
 
         if (length < 3)
-            return AshFrame.Invalid(AshFrameError.MessageTooShort);
+            return AshReadResult.Fail(AshReadError.MessageTooShort);
 
         if (length > buffer.Length)
-            return AshFrame.Invalid(AshFrameError.BufferOverflow);
+            return AshReadResult.Fail(AshReadError.BufferOverflow);
 
-        if (!AshControlByte.TryParse(buffer[0], out var ctrl))
-            return AshFrame.Invalid(AshFrameError.InvalidControl);
+        if (!AshCtrl.TryParse(buffer[0], out var ctrl))
+            return AshReadResult.Fail(AshReadError.InvalidControl);
 
         var data = new byte[length - 3];
 
@@ -45,18 +45,18 @@ public class AshReader
         {
             case AshFrameType.Data:
                 if (!data.Length.IsBetween(3, 128))
-                    return AshFrame.Invalid(AshFrameError.InvalidPayloadSize);
+                    return AshReadResult.Fail(AshReadError.InvalidPayloadSize);
                 break;
             case AshFrameType.Ack:
             case AshFrameType.Nak:
             case AshFrameType.Reset:
                 if (data.Length > 0)
-                    return AshFrame.Invalid(AshFrameError.InvalidPayloadSize);
+                    return AshReadResult.Fail(AshReadError.InvalidPayloadSize);
                 break;
             case AshFrameType.ResetAck:
             case AshFrameType.Error:
                 if (data.Length != 2)
-                    return AshFrame.Invalid(AshFrameError.InvalidPayloadSize);
+                    return AshReadResult.Fail(AshReadError.InvalidPayloadSize);
                 break;
             default:
                 throw new ArgumentOutOfRangeException();
@@ -78,7 +78,7 @@ public class AshReader
                 Console.WriteLine();
             }
 
-            return AshFrame.Invalid(AshFrameError.InvalidCrc);
+            return AshReadResult.Fail(AshReadError.InvalidCrc);
         }
 
         if (verbose)
@@ -92,7 +92,7 @@ public class AshReader
             Console.WriteLine();
         }
 
-        return new AshFrame(ctrl, data);
+        return AshReadResult.Success(new AshFrame(ctrl, data));
     }
 
     private async Task<int> ReadFrameAsync(CancellationToken cancellationToken)
