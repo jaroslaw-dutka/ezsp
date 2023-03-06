@@ -24,10 +24,10 @@ public class TestApp: IEzspCallbackHandler
     {
         await ConfigureAsync();
         await SetEndpoints();
+
         var status = await InitNetworkAsync();
         if (status == EmberStatus.NotJoined)
         {
-            Console.WriteLine("Joining network");
             // await LeaveNetwork();
             // await ScanAsync();
             await InitSecurityAsync();
@@ -48,27 +48,23 @@ public class TestApp: IEzspCallbackHandler
     private async Task SetEndpoints()
     {
         Console.WriteLine("Setting endpoints");
-        var zzz = await ezsp.Channel.SendAsync<EzspAddEndpointRequest, EzspAddEndpointResponse>(EzspCommand.AddEndpoint, new EzspAddEndpointRequest()
+        var zzz = await ezsp.Channel.SendAsync<EzspAddEndpointRequest, EzspAddEndpointResponse>(EzspCommand.AddEndpoint, new EzspAddEndpointRequest
         {
             Endpoint = 1,
             ProfileId = ZigBeeProfileId.ZigbeeHomeAutomation,
             DeviceId = ZigBeeDeviceId.OnOffSwitch,
-            InputClusterCount = 1,
-            InputClusterList = new ushort[] { 0 },
-            OutputClusterCount = 1,
-            OutputClusterList = new ushort[] { 0 }
+            InputClusterList = new ushort[] { (byte)ZigBeeClusterId.GenIdentify, (byte)ZigBeeClusterId.GenOnOff },
+            OutputClusterList = new ushort[] { }
         });
 
-        // var xxx = await channel.SendAsync<EzspAddEndpointRequest, EzspAddEndpointResponse>(EzspCommand.AddEndpoint, new EzspAddEndpointRequest()
-        // {
-        //     Endpoint = 2,
-        //     ProfileId = 0,
-        //     DeviceId = 0,
-        //     InputClusterCount = 1,
-        //     InputClusterList = new ushort[] { 0, 3 },
-        //     OutputClusterCount = 1,
-        //     OutputClusterList = new ushort[] { 1 }
-        // });
+        var yyy = await ezsp.Channel.SendAsync<EzspAddEndpointRequest, EzspAddEndpointResponse>(EzspCommand.AddEndpoint, new EzspAddEndpointRequest
+        {
+            Endpoint = 3,
+            ProfileId = ZigBeeProfileId.ZigbeeHomeAutomation,
+            DeviceId = ZigBeeDeviceId.OnOffSwitch,
+            InputClusterList = new ushort[] { (byte)ZigBeeClusterId.GenIdentify },
+            OutputClusterList = new ushort[] { }
+        });
     }
 
     private async Task<EmberStatus> InitNetworkAsync()
@@ -80,6 +76,7 @@ public class TestApp: IEzspCallbackHandler
 
     private async Task LeaveNetwork()
     {
+        Console.WriteLine("Leaving network");
         await ezsp.LeaveNetworkAsync();
         var state = await ezsp.NetworkStateAsync();
         while (state.Status != EmberNetworkStatus.NoNetwork)
@@ -108,6 +105,7 @@ public class TestApp: IEzspCallbackHandler
 
     private async Task JoinNetworkAsync()
     {
+        Console.WriteLine("Joining network");
         await ezsp.JoinNetworkAsync(EmberNodeType.Router, new EmberNetworkParameters
         {
             ExtendedPanId = new EzspExtendedPanId(0x00124B0029DDECFB),

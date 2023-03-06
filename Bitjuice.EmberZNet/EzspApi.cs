@@ -122,9 +122,9 @@ public class EzspApi
         return response.Data;
     }
 
-    public async Task<EzspResponse> SetMfgTokenAsync(EzspMfgTokenId tokenId, string data)
+    public async Task<EzspSetMfgTokenResponse> SetMfgTokenAsync(EzspMfgTokenId tokenId, string data)
     {
-        return await Channel.SendAsync<EzspSetMfgTokenRequest, EzspResponse>(EzspCommand.SetMfgToken, new EzspSetMfgTokenRequest
+        return await Channel.SendAsync<EzspSetMfgTokenRequest, EzspSetMfgTokenResponse>(EzspCommand.SetMfgToken, new EzspSetMfgTokenRequest
         {
             TokenId = tokenId,
             Data = data
