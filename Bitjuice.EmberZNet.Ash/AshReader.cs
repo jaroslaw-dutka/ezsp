@@ -67,13 +67,16 @@ public class AshReader
 
         if (computedCrc != receivedCrc)
         {
-            Console.ForegroundColor = ConsoleColor.Red;
-            Console.WriteLine("In " + DateTime.Now.ToString("O"));
-            Console.WriteLine($"Ctrl: {ctrl}");
-            Console.WriteLine($"Data: {BitConverter.ToString(data).Replace("-", " ")}");
-            // Console.WriteLine($"Buffer: {BitConverter.ToString(buffer.AsSpan(0, length).ToArray()).Replace("-", " ")}");
-            // Console.WriteLine($"Crc: {receivedCrc.ToString("X").Replace("-", " ")}");
-            Console.WriteLine();
+            if (verbose)
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("In " + DateTime.Now.ToString("O"));
+                Console.WriteLine($"Ctrl: {ctrl}");
+                Console.WriteLine($"Data: {BitConverter.ToString(data).Replace("-", " ")}");
+                // Console.WriteLine($"Buffer: {BitConverter.ToString(buffer.AsSpan(0, length).ToArray()).Replace("-", " ")}");
+                // Console.WriteLine($"Crc: {receivedCrc.ToString("X").Replace("-", " ")}");
+                Console.WriteLine();
+            }
 
             return AshFrame.Invalid(AshFrameError.InvalidCrc);
         }

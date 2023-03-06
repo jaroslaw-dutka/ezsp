@@ -45,9 +45,9 @@ public class EzspApi
         });
     }
 
-    public async Task<EzspResponse> NetworkInitAsync()
+    public async Task<EzspNetworkInitResponse> NetworkInitAsync()
     {
-        return await Channel.SendAsync<EzspResponse>(EzspCommand.NetworkInit);
+        return await Channel.SendAsync<EzspNetworkInitResponse>(EzspCommand.NetworkInit);
     }
 
     public async Task<EzspNetworkStateResponse> NetworkStateAsync()

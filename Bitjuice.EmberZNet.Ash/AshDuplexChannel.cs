@@ -25,8 +25,8 @@ public class AshDuplexChannel
 
     public AshDuplexChannel(Stream stream, IAshDataHandler handler)
     {
-        reader = new AshReader(stream, 256, true);
-        writer = new AshWriter(stream, 256, true);
+        reader = new AshReader(stream, 256, false);
+        writer = new AshWriter(stream, 256, false);
         this.handler = handler;
     }
 

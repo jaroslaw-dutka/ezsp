@@ -1,5 +1,7 @@
 ﻿using System.Buffers.Binary;
 using System.Net.Sockets;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using Bitjuice.EmberZNet.Api;
 using Bitjuice.EmberZNet.Model;
 
@@ -12,39 +14,43 @@ public class TestApp: IEzspCallbackHandler
     public async Task ConnectAsync(CancellationToken cancellationToken)
     {
         var tcp = new TcpClient();
-        await tcp.ConnectAsync("192.168.1.40", 8888);
-        // var channel = new EzspChannel(tcp.GetStream(), this);
-        // await channel.ConnectAsync(CancellationToken.None);
+        await tcp.ConnectAsync("192.168.1.40", 8888, cancellationToken);
         ezsp = new EzspApi(tcp.GetStream(), this);
+        Console.WriteLine("Connecting");
         await ezsp.Channel.ConnectAsync(cancellationToken);
     }
 
     public async Task RunAsync(CancellationToken cancellationToken)
     {
-        // for (var i = 0; i < 100; i++)
-        //     await ezsp.EchoAsync("Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry");
-        //var aa = await ezsp.GetConfigurationValueAsync(EzspConfigId.TxK);
-        // await ezsp.SetMfgTokenAsync(EzspMfgTokenId.MFG_BOARD_NAME, "dupadupadupablad");
-        // var aaa = await ezsp.GetMfgTokenAsync(EzspMfgTokenId.MFG_BOARD_NAME);
-        // var bbb = await ezsp.GetMfgTokenAsync(EzspMfgTokenId.MFG_MANUF_ID);
-        // await channel.SendAsync<EzspResponse>(EzspCommand.GetNumStoredBeacons);
-        // var beaconResponse = await channel.SendAsync<EzspGetFirstBeaconResponse>(EzspCommand.GetFirstBeacon);
-
         await ConfigureAsync();
-        await InitNetworkAsync();
-        await InitSecurityAsync();
-        // await ScanAsync();
-        await JoinNetworkAsync();
+        await SetEndpoints();
+        var status = await InitNetworkAsync();
+        if (status != EmberStatus.NetworkUp)
+        {
+            await LeaveNetwork();
+            await InitSecurityAsync();
+            // await ScanAsync();
+            await JoinNetworkAsync();
+        }
+        else
+        {
+            Console.WriteLine("Network connected");
+        }
     }
 
     private async Task ConfigureAsync()
     {
+        Console.WriteLine("Configuring module");
         var version = await ezsp.VersionAsync(7);
         await ezsp.SetConfigurationValueAsync(EzspConfigId.StackProfile, version.StackType);
         await ezsp.SetConfigurationValueAsync(EzspConfigId.SecurityLevel, 5);
         await ezsp.SetConfigurationValueAsync(EzspConfigId.SupportedNetworks, 1);
         await ezsp.SetConfigurationValueAsync(EzspConfigId.PacketBufferCount, 128);
+    }
 
+    private async Task SetEndpoints()
+    {
+        Console.WriteLine("Setting endpoints");
         var zzz = await ezsp.Channel.SendAsync<EzspAddEndpointRequest, EzspAddEndpointResponse>(EzspCommand.AddEndpoint, new EzspAddEndpointRequest()
         {
             Endpoint = 1,
@@ -55,6 +61,7 @@ public class TestApp: IEzspCallbackHandler
             OutputClusterCount = 1,
             OutputClusterList = new ushort[] { 0 }
         });
+
         // var xxx = await channel.SendAsync<EzspAddEndpointRequest, EzspAddEndpointResponse>(EzspCommand.AddEndpoint, new EzspAddEndpointRequest()
         // {
         //     Endpoint = 2,
@@ -67,12 +74,16 @@ public class TestApp: IEzspCallbackHandler
         // });
     }
 
-    private async Task InitNetworkAsync()
+    private async Task<EmberStatus> InitNetworkAsync()
     {
         var response = await ezsp.NetworkInitAsync();
-        if ((byte)response.Status != 0x93)
-            response = await ezsp.LeaveNetworkAsync();
+        Console.WriteLine("Network status: " + response.Status);
+        return response.Status;
+    }
 
+    private async Task LeaveNetwork()
+    {
+        await ezsp.LeaveNetworkAsync();
         var state = await ezsp.NetworkStateAsync();
         while (state.Status != EmberNetworkStatus.NoNetwork)
         {
@@ -117,24 +128,50 @@ public class TestApp: IEzspCallbackHandler
     {
         var cmd = (EzspCommand)BinaryPrimitives.ReadUInt16BigEndian(data.AsSpan(3));
 
-        // Console.WriteLine($"Callback {cmd}");
-        // Console.WriteLine();
+        Console.WriteLine($"Callback {cmd}");
 
-        if (cmd == EzspCommand.StackStatusHandler)
+        switch (cmd)
         {
-            var aa = EzspSerializer.Deserialize<EzspStackStatusHandlerResponse>(data.AsSpan(5).ToArray());
-            if (aa.Status == EmberStatus.JoinFailed)
+            case EzspCommand.StackStatusHandler:
             {
-                await Task.Delay(2000);
-                await JoinNetworkAsync();
+                var aa = EzspSerializer.Deserialize<EzspStackStatusHandlerResponse>(data.AsSpan(5).ToArray());
+                Dump(aa);
+
+                if (aa.Status == EmberStatus.JoinFailed)
+                {
+                    await Task.Delay(2000);
+                    await JoinNetworkAsync();
+                }
+
+                if (aa.Status == EmberStatus.NetworkUp)
+                {
+                    // var networkParams = ezsp.Channel.SendAsync(EzspCommand.GetNetworkParameters);
+                }
+
+                break;
+            }
+            case EzspCommand.IncomingMessageHandler:
+            {
+                var aa = EzspSerializer.Deserialize<EzspIncomingMessageHandlerResponse>(data.AsSpan(5).ToArray());
+                Dump(aa);
+
+                // Console.WriteLine(BitConverter.ToString(aa.MessageContents).Replace("-", " "));
+            
+                var bb = 2;
+                break;
             }
         }
-        if (cmd == EzspCommand.IncomingMessageHandler)
-        {
-            var aa = EzspSerializer.Deserialize<EzspIncomingMessageHandlerResponse>(data.AsSpan(5).ToArray());
-            var bb = 2;
-        }
 
-        var cc = 2;
+        Console.WriteLine();
+    }
+
+    private static void Dump(object obj)
+    {
+        var json = JsonSerializer.Serialize(obj, new JsonSerializerOptions
+        {
+            WriteIndented = true,
+            Converters = { new JsonStringEnumConverter() }
+        });
+        Console.WriteLine(json);
     }
 }
