@@ -3,15 +3,16 @@ using Bitjuice.EmberZNet.Ash.Utils;
 
 namespace Bitjuice.EmberZNet.Ash;
 
-public class AshChannel
+public class AshChannel : IAshChannel
 {
     private const byte OutgoingWindow = 1;
 
     private readonly AshReader reader;
     private readonly AshWriter writer;
 
-    private Task sendTask;
-    private Task readTask;
+    private AshChannelStatus status;
+    private Task? sendTask;
+    private Task? readTask;
 
     private CancellationTokenSource? cts;
 
@@ -28,10 +29,16 @@ public class AshChannel
     {
         reader = new AshReader(stream, 256, true);
         writer = new AshWriter(stream, 256, true);
+        status = AshChannelStatus.NotConnected;
     }
 
     public async Task ConnectAsync(IAshDataHandler handler, CancellationToken cancellationToken)
     {
+        ExpectStatus(AshChannelStatus.NotConnected);
+        status = AshChannelStatus.Connecting;
+
+        ResetState();
+
         await writer.WriteDiscardAsync(cancellationToken);
         await writer.WriteResetAsync(cancellationToken);
         var result = await reader.ReadAsync(cancellationToken);
@@ -43,23 +50,23 @@ public class AshChannel
         sendTask = Task.Run(async () => await SendLoop(cts.Token), cts.Token);
         readTask = Task.Run(async () => await ReadLoop(handler, cts.Token), cts.Token);
         #pragma warning restore CS4014
+
+        status = AshChannelStatus.Connected;
     }
 
-    public async Task DisconnectAsync(CancellationToken cancellationToken)
+    public async Task DisconnectAsync()
     {
+        ExpectStatus(AshChannelStatus.Connected);
+        status = AshChannelStatus.Disconnecting;
+
         cts?.Cancel();
         cts = null;
 
-        await Task.WhenAll(sendTask, readTask);
+        await Task.WhenAll(sendTask ?? Task.CompletedTask, readTask ?? Task.CompletedTask);
 
-        incomingFrameNext = 0;
-        outgoingFrameNext = 0;
-        outgoingFrameAck = 0;
-        inputQueue.Clear();
-        ackPending = false;
-        rejectCondition = false;
-        for (var i = 0; i < sendQueue.Length; i++)
-            sendQueue[i] = null;
+        ResetState();
+
+        status = AshChannelStatus.NotConnected;
     }
 
     public void Send(byte[] data)
@@ -199,5 +206,23 @@ public class AshChannel
                 Console.WriteLine(ex.Message);
             }
         }
+    }
+
+    private void ExpectStatus(AshChannelStatus expected)
+    {
+        if (status != expected)
+            throw new InvalidOperationException($"Invalid channel status. Expected: {expected}, Got: {status}.");
+    }
+
+    private void ResetState()
+    {
+        incomingFrameNext = 0;
+        outgoingFrameNext = 0;
+        outgoingFrameAck = 0;
+        inputQueue.Clear();
+        ackPending = false;
+        rejectCondition = false;
+        for (var i = 0; i < sendQueue.Length; i++)
+            sendQueue[i] = null;
     }
 }

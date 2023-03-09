@@ -3,17 +3,22 @@ using Bitjuice.EmberZNet.Ash;
 
 namespace Bitjuice.EmberZNet;
 
-public class EzspChannel: IAshDataHandler
+public class EzspChannel: IAshDataHandler, IEzspChannel
 {
-    private readonly AshChannel channel;
+    private readonly IAshChannel channel;
+    private readonly TaskCompletionSource<ReadOnlyMemory<byte>>?[] receiveQueue;
     private IEzspCallbackHandler handler;
     private byte msgIndex;
     private byte version;
-    private TaskCompletionSource<ReadOnlyMemory<byte>>?[] tcss = new TaskCompletionSource<ReadOnlyMemory<byte>>[256];
-
-    public EzspChannel(Stream stream)
+    
+    public EzspChannel(IAshChannel channel)
     {
-        channel = new AshChannel(stream);
+        this.channel = channel;
+        receiveQueue = new TaskCompletionSource<ReadOnlyMemory<byte>>[256];
+    }
+
+    public EzspChannel(Stream stream): this(new AshChannel(stream))
+    {
     }
 
     public async Task ConnectAsync(IEzspCallbackHandler handler, CancellationToken cancellationToken)
@@ -21,21 +26,22 @@ public class EzspChannel: IAshDataHandler
         this.handler = handler;
 
         await channel.ConnectAsync(this, cancellationToken);
+
         var response = await SendAsync(EzspCommand.Version, 4);
         version = response.Span[0];
         await SendAsync(EzspCommand.Version, version);
     }
 
-    public async Task DisconnectAsync(CancellationToken cancellationToken)
+    public async Task DisconnectAsync()
     {
-        await channel.DisconnectAsync(cancellationToken);
+        await channel.DisconnectAsync();
 
         msgIndex = 0;
         version = 0;
-        for (var i = 0; i < tcss.Length; i++)
+        for (var i = 0; i < receiveQueue.Length; i++)
         {
-            var tcs = tcss[i];
-            tcss[i] = null;
+            var tcs = receiveQueue[i];
+            receiveQueue[i] = null;
             if (tcs is not null)
                 tcs.SetResult(Array.Empty<byte>());
         }
@@ -57,7 +63,7 @@ public class EzspChannel: IAshDataHandler
     public Task<ReadOnlyMemory<byte>> SendAsync(EzspCommand cmd, params byte[] data)
     {
         var tcs = new TaskCompletionSource<ReadOnlyMemory<byte>>();
-        tcss[msgIndex] = tcs;
+        receiveQueue[msgIndex] = tcs;
 
         var request = new byte[data.Length + (version > 4 ? 5 : 3)];
         var i = 0;
@@ -90,8 +96,8 @@ public class EzspChannel: IAshDataHandler
     public async Task HandleAsync(byte[] data)
     {
         var i = data[0];
-        var cts = tcss[i];
-        tcss[i] = null;
+        var cts = receiveQueue[i];
+        receiveQueue[i] = null;
         var memory = data.AsMemory(version > 4 ? 5 : 3);
         if (cts is not null)
             cts.SetResult(memory);
