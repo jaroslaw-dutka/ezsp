@@ -5,22 +5,22 @@ namespace Bitjuice.EmberZNet;
 
 public class EzspChannel: IAshDataHandler
 {
-    private readonly AshDuplexChannel channel;
-    private readonly IEzspCallbackHandler callbackHandler;
+    private readonly AshChannel channel;
+    private IEzspCallbackHandler handler;
     private byte msgIndex;
     private byte version;
     private TaskCompletionSource<ReadOnlyMemory<byte>>?[] tcss = new TaskCompletionSource<ReadOnlyMemory<byte>>[256];
 
-    public EzspChannel(Stream stream, IEzspCallbackHandler callbackHandler)
+    public EzspChannel(Stream stream)
     {
-        channel = new AshDuplexChannel(stream, this);
-        this.callbackHandler = callbackHandler;
+        channel = new AshChannel(stream);
     }
 
-    public async Task ConnectAsync(CancellationToken cancellationToken)
+    public async Task ConnectAsync(IEzspCallbackHandler handler, CancellationToken cancellationToken)
     {
-        await DisconnectAsync(cancellationToken);
-        await channel.ConnectAsync(cancellationToken);
+        this.handler = handler;
+
+        await channel.ConnectAsync(this, cancellationToken);
         var response = await SendAsync(EzspCommand.Version, 4);
         version = response.Span[0];
         await SendAsync(EzspCommand.Version, version);
@@ -83,7 +83,7 @@ public class EzspChannel: IAshDataHandler
         }
 
         data.CopyTo(request.AsSpan(i));
-        channel.SendQueue(request);
+        channel.Send(request);
         return tcs.Task;
     }
 
@@ -96,6 +96,6 @@ public class EzspChannel: IAshDataHandler
         if (cts is not null)
             cts.SetResult(memory);
         else
-            await callbackHandler.HandleCallbackAsync(data);
+            await handler.HandleCallbackAsync(data);
     }
 }

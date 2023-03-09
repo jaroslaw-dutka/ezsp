@@ -3,19 +3,20 @@ using Bitjuice.EmberZNet.Ash.Utils;
 
 namespace Bitjuice.EmberZNet.Ash;
 
-public class AshDuplexChannel
+public class AshChannel
 {
     private const byte OutgoingWindow = 1;
 
     private readonly AshReader reader;
     private readonly AshWriter writer;
 
-    private readonly IAshDataHandler handler;
+    private Task sendTask;
+    private Task readTask;
 
     private CancellationTokenSource? cts;
 
-    private readonly ConcurrentQueue<AshSendTask> sendQueue = new();
-    private readonly AshSendTask?[] ackQueue = new AshSendTask?[8];
+    private readonly ConcurrentQueue<AshSendTask> inputQueue = new();
+    private readonly AshSendTask?[] sendQueue = new AshSendTask?[8];
 
     private byte incomingFrameNext;
     private byte outgoingFrameNext;
@@ -23,55 +24,47 @@ public class AshDuplexChannel
     private bool ackPending;
     private bool rejectCondition;
 
-    public AshDuplexChannel(Stream stream, IAshDataHandler handler)
+    public AshChannel(Stream stream)
     {
-        reader = new AshReader(stream, 256, false);
-        writer = new AshWriter(stream, 256, false);
-        this.handler = handler;
+        reader = new AshReader(stream, 256, true);
+        writer = new AshWriter(stream, 256, true);
     }
 
-    public async Task ConnectAsync(CancellationToken cancellationToken)
+    public async Task ConnectAsync(IAshDataHandler handler, CancellationToken cancellationToken)
     {
-        Reset();
-
         await writer.WriteDiscardAsync(cancellationToken);
         await writer.WriteResetAsync(cancellationToken);
-
         var result = await reader.ReadAsync(cancellationToken);
         while (result.Error is not null || result.Frame is null || result.Frame.Ctrl.Type != AshFrameType.ResetAck)
             result = await reader.ReadAsync(cancellationToken); // Discard any invalid or not ResetAck frames
 
         cts = new CancellationTokenSource();
-
         #pragma warning disable CS4014
-        Task.Run(async () => await SendLoop(cts.Token), cts.Token);
-        Task.Run(async () => await ReadLoop(cts.Token), cts.Token);
+        sendTask = Task.Run(async () => await SendLoop(cts.Token), cts.Token);
+        readTask = Task.Run(async () => await ReadLoop(handler, cts.Token), cts.Token);
         #pragma warning restore CS4014
     }
 
-    public Task DisconnectAsync(CancellationToken cancellationToken)
-    {
-        Reset();
-        return Task.CompletedTask;
-    }
-
-    public void SendQueue(byte[] data)
-    {
-        sendQueue.Enqueue(new AshSendTask(data));
-    }
-
-    private void Reset()
+    public async Task DisconnectAsync(CancellationToken cancellationToken)
     {
         cts?.Cancel();
         cts = null;
+
+        await Task.WhenAll(sendTask, readTask);
+
         incomingFrameNext = 0;
         outgoingFrameNext = 0;
         outgoingFrameAck = 0;
-        sendQueue.Clear();
+        inputQueue.Clear();
         ackPending = false;
         rejectCondition = false;
-        for (var i = 0; i < ackQueue.Length; i++)
-            ackQueue[i] = null;
+        for (var i = 0; i < sendQueue.Length; i++)
+            sendQueue[i] = null;
+    }
+
+    public void Send(byte[] data)
+    {
+        inputQueue.Enqueue(new AshSendTask(data));
     }
 
     private async Task SendLoop(CancellationToken cancellationToken)
@@ -92,7 +85,7 @@ public class AshDuplexChannel
 
                 for (var i = outgoingFrameAck; i != outgoingFrameNext; i = i.IncMod8())
                 {
-                    var resendItem = ackQueue[i];
+                    var resendItem = sendQueue[i];
                     if (resendItem is null)
                         continue;
                     if (resendItem.Retries > 3)
@@ -115,7 +108,7 @@ public class AshDuplexChannel
                     continue;
                 }
 
-                if (!sendQueue.TryDequeue(out var newItem))
+                if (!inputQueue.TryDequeue(out var newItem))
                 {
                     await Task.Delay(100, cancellationToken);
                     continue;
@@ -125,7 +118,7 @@ public class AshDuplexChannel
 
                 newItem.MarkAsSent();
 
-                ackQueue[outgoingFrameNext] = newItem;
+                sendQueue[outgoingFrameNext] = newItem;
                 outgoingFrameNext = outgoingFrameNext.IncMod8();
             }
             catch (Exception ex)
@@ -135,7 +128,7 @@ public class AshDuplexChannel
         }
     }
 
-    private async Task ReadLoop(CancellationToken cancellationToken)
+    private async Task ReadLoop(IAshDataHandler handler, CancellationToken cancellationToken)
     {
         while (!cancellationToken.IsCancellationRequested)
         {
@@ -170,7 +163,7 @@ public class AshDuplexChannel
                     if (frame.Ctrl.AckNumber.InRangeMod8(outgoingFrameAck, outgoingFrameNext))
                     {
                         for (var i = frame.Ctrl.AckNumber.IncMod8(); i != outgoingFrameNext; i = i.IncMod8())
-                            ackQueue[i]?.MarkAsRejected();
+                            sendQueue[i]?.MarkAsRejected();
                     }
                 }
 
@@ -178,7 +171,7 @@ public class AshDuplexChannel
                 {
                     if (frame.Ctrl.FrameNumber == incomingFrameNext && frame.Ctrl.AckNumber.InRangeMod8(outgoingFrameAck, outgoingFrameNext))
                     {
-                        ackQueue[frame.Ctrl.FrameNumber] = null;
+                        sendQueue[frame.Ctrl.FrameNumber] = null;
 
                         incomingFrameNext = frame.Ctrl.FrameNumber.IncMod8();
                         outgoingFrameAck = frame.Ctrl.AckNumber;

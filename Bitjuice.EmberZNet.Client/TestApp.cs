@@ -1,5 +1,4 @@
 ﻿using System.Buffers.Binary;
-using System.Net.Sockets;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Bitjuice.EmberZNet.Api;
@@ -9,19 +8,18 @@ namespace Bitjuice.EmberZNet.Client;
 
 public class TestApp: IEzspCallbackHandler
 {
-    private EzspApi ezsp;
+    private readonly EzspApi ezsp;
 
-    public async Task ConnectAsync(CancellationToken cancellationToken)
+    public TestApp(Stream stream)
     {
-        var tcp = new TcpClient();
-        await tcp.ConnectAsync("192.168.1.40", 8888, cancellationToken);
-        ezsp = new EzspApi(tcp.GetStream(), this);
-        Console.WriteLine("Connecting");
-        await ezsp.Channel.ConnectAsync(cancellationToken);
+        ezsp = new EzspApi(stream);
     }
 
     public async Task RunAsync(CancellationToken cancellationToken)
     {
+        Console.WriteLine("Connecting");
+        await ezsp.Channel.ConnectAsync(this, cancellationToken);
+
         await ConfigureAsync();
         await SetEndpoints();
 
@@ -33,6 +31,13 @@ public class TestApp: IEzspCallbackHandler
             await InitSecurityAsync();
             await JoinNetworkAsync();
         }
+
+        cancellationToken.WaitHandle.WaitOne();
+
+        Console.WriteLine("Disconnecting");
+        await ezsp.Channel.DisconnectAsync(CancellationToken.None);
+
+        Console.WriteLine("Disconnected");
     }
 
     private async Task ConfigureAsync()
@@ -164,7 +169,7 @@ public class TestApp: IEzspCallbackHandler
     {
         var json = JsonSerializer.Serialize(obj, new JsonSerializerOptions
         {
-            WriteIndented = true,
+            WriteIndented = false,
             Converters = { new JsonStringEnumConverter() }
         });
         Console.WriteLine(json);
