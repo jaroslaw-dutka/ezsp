@@ -6,5 +6,5 @@ public interface IEzspChannel
     Task DisconnectAsync();
     Task<TResponse> SendAsync<TResponse>(EzspCommand cmd);
     Task<TResponse> SendAsync<TRequest, TResponse>(EzspCommand cmd, TRequest request);
-    Task<ReadOnlyMemory<byte>> SendAsync(EzspCommand cmd, params byte[] data);
+    Task<byte[]> SendAsync(EzspCommand cmd, params byte[] data);
 }

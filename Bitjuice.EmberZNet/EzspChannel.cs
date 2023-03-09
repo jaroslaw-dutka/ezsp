@@ -1,4 +1,5 @@
 ﻿using System.Buffers.Binary;
+using System.Collections.Concurrent;
 using Bitjuice.EmberZNet.Ash;
 
 namespace Bitjuice.EmberZNet;
@@ -6,7 +7,7 @@ namespace Bitjuice.EmberZNet;
 public class EzspChannel: IAshDataHandler, IEzspChannel
 {
     private readonly IAshChannel channel;
-    private readonly TaskCompletionSource<ReadOnlyMemory<byte>>?[] receiveQueue;
+    private readonly ConcurrentDictionary<byte, TaskCompletionSource<byte[]>> receiveQueue = new();
     private IEzspCallbackHandler handler;
     private byte msgIndex;
     private byte version;
@@ -14,7 +15,6 @@ public class EzspChannel: IAshDataHandler, IEzspChannel
     public EzspChannel(IAshChannel channel)
     {
         this.channel = channel;
-        receiveQueue = new TaskCompletionSource<ReadOnlyMemory<byte>>[256];
     }
 
     public EzspChannel(Stream stream): this(new AshChannel(stream))
@@ -28,7 +28,7 @@ public class EzspChannel: IAshDataHandler, IEzspChannel
         await channel.ConnectAsync(this, cancellationToken);
 
         var response = await SendAsync(EzspCommand.Version, 4);
-        version = response.Span[0];
+        version = response[0];
         await SendAsync(EzspCommand.Version, version);
     }
 
@@ -38,31 +38,27 @@ public class EzspChannel: IAshDataHandler, IEzspChannel
 
         msgIndex = 0;
         version = 0;
-        for (var i = 0; i < receiveQueue.Length; i++)
-        {
-            var tcs = receiveQueue[i];
-            receiveQueue[i] = null;
-            if (tcs is not null)
-                tcs.SetResult(Array.Empty<byte>());
-        }
+        foreach (var tcs in receiveQueue.Values) 
+            tcs.SetResult(Array.Empty<byte>());
+        receiveQueue.Clear();
     }
 
     public async Task<TResponse> SendAsync<TResponse>(EzspCommand cmd)
     {
         var responseBytes = await SendAsync(cmd, Array.Empty<byte>());
-        return EzspSerializer.Deserialize<TResponse>(responseBytes.Span.ToArray());
+        return EzspSerializer.Deserialize<TResponse>(responseBytes);
     }
 
     public async Task<TResponse> SendAsync<TRequest, TResponse>(EzspCommand cmd, TRequest request)
     {
         var requestBytes = EzspSerializer.Serialize(request);
         var responseBytes = await SendAsync(cmd, requestBytes);
-        return EzspSerializer.Deserialize<TResponse>(responseBytes.Span.ToArray());
+        return EzspSerializer.Deserialize<TResponse>(responseBytes);
     }
 
-    public Task<ReadOnlyMemory<byte>> SendAsync(EzspCommand cmd, params byte[] data)
+    public Task<byte[]> SendAsync(EzspCommand cmd, params byte[] data)
     {
-        var tcs = new TaskCompletionSource<ReadOnlyMemory<byte>>();
+        var tcs = new TaskCompletionSource<byte[]>();
         receiveQueue[msgIndex] = tcs;
 
         var request = new byte[data.Length + (version > 4 ? 5 : 3)];
@@ -95,12 +91,8 @@ public class EzspChannel: IAshDataHandler, IEzspChannel
 
     public async Task HandleAsync(byte[] data)
     {
-        var i = data[0];
-        var cts = receiveQueue[i];
-        receiveQueue[i] = null;
-        var memory = data.AsMemory(version > 4 ? 5 : 3);
-        if (cts is not null)
-            cts.SetResult(memory);
+        if (receiveQueue.TryRemove(data[0], out var tcs))
+            tcs.SetResult(data.AsSpan().Slice(version > 4 ? 5 : 3).ToArray());
         else
             await handler.HandleCallbackAsync(data);
     }

@@ -128,6 +128,10 @@ public class AshChannel : IAshChannel
                 sendQueue[outgoingFrameNext] = newItem;
                 outgoingFrameNext = outgoingFrameNext.IncMod8();
             }
+            catch (OperationCanceledException)
+            {
+                // ignore
+            }
             catch (Exception ex)
             {
                 Console.WriteLine(ex.Message);
@@ -200,6 +204,10 @@ public class AshChannel : IAshChannel
                         }
                     }
                 }
+            }
+            catch (OperationCanceledException)
+            {
+                // ignore
             }
             catch (Exception ex)
             {

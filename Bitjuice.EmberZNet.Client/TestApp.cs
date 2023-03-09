@@ -35,7 +35,7 @@ public class TestApp: IEzspCallbackHandler
         cancellationToken.WaitHandle.WaitOne();
 
         Console.WriteLine("Disconnecting");
-        await ezsp.Channel.DisconnectAsync(CancellationToken.None);
+        await ezsp.Channel.DisconnectAsync();
 
         Console.WriteLine("Disconnected");
     }
