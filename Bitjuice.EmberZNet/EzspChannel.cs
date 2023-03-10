@@ -89,10 +89,10 @@ public class EzspChannel: IAshDataHandler, IEzspChannel
         return tcs.Task;
     }
 
-    public async Task HandleAsync(byte[] data)
+    public async Task HandleAsync(ReadOnlyMemory<byte> data)
     {
-        if (receiveQueue.TryRemove(data[0], out var tcs))
-            tcs.SetResult(data.AsSpan().Slice(version > 4 ? 5 : 3).ToArray());
+        if (receiveQueue.TryRemove(data.Span[0], out var tcs))
+            tcs.SetResult(data.Slice(version > 4 ? 5 : 3).ToArray());
         else
             await handler.HandleCallbackAsync(data);
     }

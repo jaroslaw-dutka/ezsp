@@ -27,8 +27,14 @@ public class AshChannel : IAshChannel
 
     public AshChannel(Stream stream)
     {
-        reader = new AshReader(stream, 256, true);
-        writer = new AshWriter(stream, 256, true);
+        reader = new AshReader(stream)
+        {
+            Verbose = true
+        };
+        writer = new AshWriter(stream)
+        {
+            Verbose = true
+        };
         status = AshChannelStatus.NotConnected;
     }
 
@@ -159,7 +165,7 @@ public class AshChannel : IAshChannel
                 var frame = result.Frame;
 
                 if (frame.Ctrl.Type == AshFrameType.Error)
-                    throw new AshException(frame.Data[0], frame.Data[1]);
+                    throw new AshException(frame.Data.Span[0], frame.Data.Span[1]);
 
                 if (frame.Ctrl.Type == AshFrameType.Ack)
                 {

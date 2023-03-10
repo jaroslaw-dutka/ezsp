@@ -13,9 +13,9 @@ public class EzspSerializer
         return stream.ToArray();
     }
 
-    public static T Deserialize<T>(byte[] bytes)
+    public static T Deserialize<T>(ReadOnlyMemory<byte> bytes)
     {
-        var stream = new MemoryStream(bytes);
+        var stream = new ReadOnlyMemoryStream(bytes);
         return Serializer.Deserialize<T>(stream);
     }
 }

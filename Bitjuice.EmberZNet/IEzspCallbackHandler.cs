@@ -2,5 +2,5 @@
 
 public interface IEzspCallbackHandler
 {
-    Task HandleCallbackAsync(byte[] data);
+    Task HandleCallbackAsync(ReadOnlyMemory<byte> data);
 }

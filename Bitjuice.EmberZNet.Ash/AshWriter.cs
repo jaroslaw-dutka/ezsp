@@ -4,20 +4,18 @@ namespace Bitjuice.EmberZNet.Ash;
 
 public class AshWriter
 {
-    private const byte EscapeBit = 0x20;
-
     private readonly byte[] reservedBytes = Enum.GetValuesAsUnderlyingType<AshReservedByte>().OfType<byte>().ToArray();
     private readonly Stream stream;
-    private readonly bool verbose;
     private readonly byte[] buffer;
     private int inputIndex;
     private int bufferIndex;
     private ushort crc;
 
-    public AshWriter(Stream stream, int bufferSize = 256, bool verbose = false)
+    public bool Verbose { get; set; }
+
+    public AshWriter(Stream stream, int bufferSize = AshConstants.MaxMessageSize+1)
     {
         this.stream = stream;
-        this.verbose = verbose;
         buffer = new byte[bufferSize];
     }
 
@@ -41,7 +39,7 @@ public class AshWriter
         if (!AshCtrl.TryParse(ctrl, out var ctrlByte))
             throw new ArgumentException("Control byte is invalid", nameof(ctrl));
 
-        if (verbose)
+        if (Verbose)
         {
             Console.ForegroundColor = ConsoleColor.Blue;
             Console.WriteLine("Out " + DateTime.Now.ToString("O"));
@@ -73,7 +71,7 @@ public class AshWriter
         if (escape && reservedBytes.Contains(b))
         {
             buffer[bufferIndex++] = (byte)AshReservedByte.Escape;
-            b ^= EscapeBit;
+            b ^= AshConstants.EscapeBit;
         }
 
         buffer[bufferIndex++] = b;

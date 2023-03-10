@@ -5,16 +5,15 @@ namespace Bitjuice.EmberZNet.Ash;
 
 public class AshReader
 {
-    private const byte EscapeBit = 0x20;
-
     private readonly Stream stream;
-    private readonly bool verbose;
+    
     private readonly byte[] buffer;
 
-    public AshReader(Stream stream, int bufferSize = 256, bool verbose = false)
+    public bool Verbose { get; set; }
+
+    public AshReader(Stream stream, int bufferSize = AshConstants.MaxMessageSize + 1)
     {
         this.stream = stream;
-        this.verbose = verbose;
         buffer = new byte[bufferSize];
     }
 
@@ -67,7 +66,7 @@ public class AshReader
 
         if (computedCrc != receivedCrc)
         {
-            if (verbose)
+            if (Verbose)
             {
                 Console.ForegroundColor = ConsoleColor.Red;
                 Console.WriteLine("In " + DateTime.Now.ToString("O"));
@@ -81,7 +80,7 @@ public class AshReader
             return AshReadResult.Fail(AshReadError.InvalidCrc);
         }
 
-        if (verbose)
+        if (Verbose)
         {
             Console.ForegroundColor = ConsoleColor.DarkYellow;
             Console.WriteLine("In " + DateTime.Now.ToString("O"));
@@ -109,8 +108,8 @@ public class AshReader
 
             switch ((AshReservedByte)b)
             {
-                case AshReservedByte.XON:
-                case AshReservedByte.XOFF:
+                case AshReservedByte.XOn:
+                case AshReservedByte.XOff:
                     // TODO: handle software transmission control
                     continue;
                 case AshReservedByte.Substitute:
@@ -135,7 +134,7 @@ public class AshReader
 
             if (escape)
             {
-                b ^= EscapeBit;
+                b ^= AshConstants.EscapeBit;
                 escape = false;
             }
 

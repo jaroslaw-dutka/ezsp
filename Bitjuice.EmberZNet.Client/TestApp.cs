@@ -124,9 +124,9 @@ public class TestApp: IEzspCallbackHandler
         });
     }
 
-    public async Task HandleCallbackAsync(byte[] data)
+    public async Task HandleCallbackAsync(ReadOnlyMemory<byte> data)
     {
-        var cmd = (EzspCommand)BinaryPrimitives.ReadUInt16BigEndian(data.AsSpan(3));
+        var cmd = (EzspCommand)BinaryPrimitives.ReadUInt16BigEndian(data.Span.Slice(3));
 
         Console.WriteLine($"Callback {cmd}");
 
@@ -134,7 +134,7 @@ public class TestApp: IEzspCallbackHandler
         {
             case EzspCommand.StackStatusHandler:
             {
-                var aa = EzspSerializer.Deserialize<EzspStackStatusHandlerResponse>(data.AsSpan(5).ToArray());
+                var aa = EzspSerializer.Deserialize<EzspStackStatusHandlerResponse>(data.Slice(5));
                 Dump(aa);
 
                 if (aa.Status == EmberStatus.JoinFailed)
@@ -152,7 +152,7 @@ public class TestApp: IEzspCallbackHandler
             }
             case EzspCommand.IncomingMessageHandler:
             {
-                var aa = EzspSerializer.Deserialize<EzspIncomingMessageHandlerResponse>(data.AsSpan(5).ToArray());
+                var aa = EzspSerializer.Deserialize<EzspIncomingMessageHandlerResponse>(data.Slice(5));
                 Dump(aa);
 
                 // Console.WriteLine(BitConverter.ToString(aa.MessageContents).Replace("-", " "));

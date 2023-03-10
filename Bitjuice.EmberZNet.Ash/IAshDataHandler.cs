@@ -2,5 +2,5 @@
 
 public interface IAshDataHandler
 {
-    Task HandleAsync(byte[] data);
+    Task HandleAsync(ReadOnlyMemory<byte> data);
 }
