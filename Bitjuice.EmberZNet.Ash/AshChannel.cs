@@ -7,8 +7,8 @@ public class AshChannel : IAshChannel
 {
     private const byte OutgoingWindow = 1;
 
-    private readonly AshReader reader;
-    private readonly AshWriter writer;
+    private readonly IAshReader reader;
+    private readonly IAshWriter writer;
 
     private AshChannelStatus status;
     private Task? sendTask;
@@ -25,17 +25,15 @@ public class AshChannel : IAshChannel
     private bool ackPending;
     private bool rejectCondition;
 
-    public AshChannel(Stream stream)
+    public AshChannel(IAshReader reader, IAshWriter writer)
     {
-        reader = new AshReader(stream)
-        {
-            Verbose = true
-        };
-        writer = new AshWriter(stream)
-        {
-            Verbose = true
-        };
+        this.reader = reader;
+        this.writer = writer;
         status = AshChannelStatus.NotConnected;
+    }
+
+    public AshChannel(Stream stream) : this(new AshReader(stream) { Verbose = true }, new AshWriter(stream) { Verbose = true })
+    {
     }
 
     public async Task ConnectAsync(IAshDataHandler handler, CancellationToken cancellationToken)
@@ -80,140 +78,131 @@ public class AshChannel : IAshChannel
         inputQueue.Enqueue(new AshSendTask(data));
     }
 
-    private async Task SendLoop(CancellationToken cancellationToken)
+    private async Task SendLoop(CancellationToken cancellationToken) => await RunInLoop(cancellationToken, async () =>
     {
-        while (!cancellationToken.IsCancellationRequested)
+        while (ackPending)
         {
-            try
+            if (rejectCondition)
+                await writer.WriteNakAsync(incomingFrameNext, cancellationToken);
+            else
+                await writer.WriteAckAsync(incomingFrameNext, cancellationToken);
+
+            ackPending = false;
+        }
+
+        for (var i = outgoingFrameAck; i != outgoingFrameNext; i = i.IncMod8())
+        {
+            var resendItem = sendQueue[i];
+            if (resendItem is null)
+                continue;
+            if (resendItem.Retries > 3)
+                throw new Exception("Error");
+            if (!resendItem.ShouldBeResend())
+                continue;
+            await writer.WriteDataAsync(i, incomingFrameNext, true, resendItem.Data, cancellationToken);
+            resendItem.MarkAsSent();
+        }
+
+        if (rejectCondition)
+        {
+            await Task.Delay(100, cancellationToken);
+            return;
+        }
+
+        if (outgoingFrameNext.SubMod8(outgoingFrameAck) >= OutgoingWindow)
+        {
+            await Task.Delay(100, cancellationToken);
+            return;
+        }
+
+        if (!inputQueue.TryDequeue(out var newItem))
+        {
+            await Task.Delay(100, cancellationToken);
+            return;
+        }
+
+        await writer.WriteDataAsync(outgoingFrameNext, incomingFrameNext, false, newItem.Data, cancellationToken);
+
+        newItem.MarkAsSent();
+
+        sendQueue[outgoingFrameNext] = newItem;
+        outgoingFrameNext = outgoingFrameNext.IncMod8();
+    });
+
+    private async Task ReadLoop(IAshDataHandler handler, CancellationToken cancellationToken) => await RunInLoop(cancellationToken, async () =>
+    {
+        var result = await reader.ReadAsync(cancellationToken);
+        if (result.Error is not null || result.Frame is null)
+        {
+            Console.WriteLine("Invalid frame: " + result.Error);
+            while (ackPending)
+                await Task.Delay(10, cancellationToken);
+            rejectCondition = true;
+            ackPending = true;
+            return;
+        }
+
+        var frame = result.Frame;
+
+        if (frame.Ctrl.Type == AshFrameType.Error)
+            throw new AshException(frame.Data.Span[0], frame.Data.Span[1]);
+
+        if (frame.Ctrl.Type == AshFrameType.Ack)
+        {
+            if (frame.Ctrl.AckNumber.InRangeMod8(outgoingFrameAck, outgoingFrameNext))
             {
-                while (ackPending)
-                {
-                    if (rejectCondition)
-                        await writer.WriteNakAsync(incomingFrameNext, cancellationToken);
-                    else
-                        await writer.WriteAckAsync(incomingFrameNext, cancellationToken);
-
-                    ackPending = false;
-                }
-
-                for (var i = outgoingFrameAck; i != outgoingFrameNext; i = i.IncMod8())
-                {
-                    var resendItem = sendQueue[i];
-                    if (resendItem is null)
-                        continue;
-                    if (resendItem.Retries > 3)
-                        throw new Exception("Error");
-                    if (!resendItem.ShouldBeResend())
-                        continue;
-                    await writer.WriteDataAsync(i, incomingFrameNext, true, resendItem.Data, cancellationToken);
-                    resendItem.MarkAsSent();
-                }
-
-                if (rejectCondition)
-                {
-                    await Task.Delay(100, cancellationToken);
-                    continue;
-                }
-
-                if (outgoingFrameNext.SubMod8(outgoingFrameAck) >= OutgoingWindow)
-                {
-                    await Task.Delay(100, cancellationToken);
-                    continue;
-                }
-
-                if (!inputQueue.TryDequeue(out var newItem))
-                {
-                    await Task.Delay(100, cancellationToken);
-                    continue;
-                }
-
-                await writer.WriteDataAsync(outgoingFrameNext, incomingFrameNext, false, newItem.Data, cancellationToken);
-
-                newItem.MarkAsSent();
-
-                sendQueue[outgoingFrameNext] = newItem;
-                outgoingFrameNext = outgoingFrameNext.IncMod8();
-            }
-            catch (OperationCanceledException)
-            {
-                // ignore
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine(ex.Message);
+                outgoingFrameAck = frame.Ctrl.AckNumber;
             }
         }
-    }
 
-    private async Task ReadLoop(IAshDataHandler handler, CancellationToken cancellationToken)
+        if (frame.Ctrl.Type == AshFrameType.Nak)
+        {
+            if (frame.Ctrl.AckNumber.InRangeMod8(outgoingFrameAck, outgoingFrameNext))
+            {
+                for (var i = frame.Ctrl.AckNumber.IncMod8(); i != outgoingFrameNext; i = i.IncMod8())
+                    sendQueue[i]?.MarkAsRejected();
+            }
+        }
+
+        if (frame.Ctrl.Type == AshFrameType.Data)
+        {
+            if (frame.Ctrl.FrameNumber == incomingFrameNext && frame.Ctrl.AckNumber.InRangeMod8(outgoingFrameAck, outgoingFrameNext))
+            {
+                sendQueue[frame.Ctrl.FrameNumber] = null;
+
+                incomingFrameNext = frame.Ctrl.FrameNumber.IncMod8();
+                outgoingFrameAck = frame.Ctrl.AckNumber;
+
+                rejectCondition = false;
+                ackPending = true;
+
+                Task.Run(async () => { await handler.HandleAsync(frame.Data); });
+            }
+            else
+            {
+                if (!frame.Ctrl.Retransmission)
+                {
+                    while (ackPending)
+                        await Task.Delay(10, cancellationToken);
+                    if (!rejectCondition)
+                        ackPending = true;
+                    rejectCondition = true;
+                }
+            }
+        }
+    });
+
+    private async Task RunInLoop(CancellationToken cancellationToken, Func<Task> action)
     {
         while (!cancellationToken.IsCancellationRequested)
         {
             try
             {
-                var result = await reader.ReadAsync(cancellationToken);
-                if (result.Error is not null || result.Frame is null)
-                {
-                    Console.WriteLine("Invalid frame: " + result.Error);
-                    while (ackPending)
-                        await Task.Delay(10, cancellationToken);
-                    rejectCondition = true;
-                    ackPending = true;
-                    continue;
-                }
-
-                var frame = result.Frame;
-
-                if (frame.Ctrl.Type == AshFrameType.Error)
-                    throw new AshException(frame.Data.Span[0], frame.Data.Span[1]);
-
-                if (frame.Ctrl.Type == AshFrameType.Ack)
-                {
-                    if (frame.Ctrl.AckNumber.InRangeMod8(outgoingFrameAck, outgoingFrameNext))
-                    {
-                        outgoingFrameAck = frame.Ctrl.AckNumber;
-                    }
-                }
-
-                if (frame.Ctrl.Type == AshFrameType.Nak)
-                {
-                    if (frame.Ctrl.AckNumber.InRangeMod8(outgoingFrameAck, outgoingFrameNext))
-                    {
-                        for (var i = frame.Ctrl.AckNumber.IncMod8(); i != outgoingFrameNext; i = i.IncMod8())
-                            sendQueue[i]?.MarkAsRejected();
-                    }
-                }
-
-                if (frame.Ctrl.Type == AshFrameType.Data)
-                {
-                    if (frame.Ctrl.FrameNumber == incomingFrameNext && frame.Ctrl.AckNumber.InRangeMod8(outgoingFrameAck, outgoingFrameNext))
-                    {
-                        sendQueue[frame.Ctrl.FrameNumber] = null;
-
-                        incomingFrameNext = frame.Ctrl.FrameNumber.IncMod8();
-                        outgoingFrameAck = frame.Ctrl.AckNumber;
-
-                        rejectCondition = false;
-                        ackPending = true;
-
-                        Task.Run(async () => { await handler.HandleAsync(frame.Data); });
-                    }
-                    else
-                    {
-                        if (!frame.Ctrl.Retransmission)
-                        {
-                            while (ackPending)
-                                await Task.Delay(10, cancellationToken);
-                            if (!rejectCondition)
-                                ackPending = true;
-                            rejectCondition = true;
-                        }
-                    }
-                }
+                await action();
             }
             catch (OperationCanceledException)
             {
-                // ignore
+                break;
             }
             catch (Exception ex)
             {

@@ -2,7 +2,7 @@
 
 namespace Bitjuice.EmberZNet.Ash;
 
-public class AshWriter
+public class AshWriter : IAshWriter
 {
     private readonly byte[] reservedBytes = Enum.GetValuesAsUnderlyingType<AshReservedByte>().OfType<byte>().ToArray();
     private readonly Stream stream;
@@ -21,18 +21,6 @@ public class AshWriter
 
     public async Task WriteDiscardAsync(CancellationToken cancellationToken) 
         => await stream.WriteAsync(new[] { (byte)AshReservedByte.Cancel }, cancellationToken);
-
-    public async Task WriteResetAsync(CancellationToken cancellationToken) 
-        => await WriteAsync(AshCtrl.Reset(), Array.Empty<byte>(), cancellationToken);
-
-    public async Task WriteDataAsync(byte frmNumber, byte ackNumber, bool retry, byte[] data, CancellationToken cancellationToken) 
-        => await WriteAsync(AshCtrl.Data(frmNumber, ackNumber, retry), data, cancellationToken);
-
-    public async Task WriteAckAsync(byte ackNumber, CancellationToken cancellationToken) 
-        => await WriteAsync(AshCtrl.Ack(ackNumber, false), Array.Empty<byte>(), cancellationToken);
-
-    public async Task WriteNakAsync(byte ackNumber, CancellationToken cancellationToken) 
-        => await WriteAsync(AshCtrl.Nak(ackNumber, false), Array.Empty<byte>(), cancellationToken);
 
     public async Task WriteAsync(byte ctrl, byte[] data, CancellationToken cancellationToken)
     {

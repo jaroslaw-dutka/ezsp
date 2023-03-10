@@ -3,7 +3,7 @@ using Bitjuice.EmberZNet.Ash.Utils;
 
 namespace Bitjuice.EmberZNet.Ash;
 
-public class AshReader
+public class AshReader : IAshReader
 {
     private readonly Stream stream;
     
@@ -39,7 +39,9 @@ public class AshReader
 
         var computedCrc = Crc16.CcittFalse(buffer.AsSpan(0, length - 2));
         var receivedCrc = BinaryPrimitives.ReadUInt16BigEndian(buffer.AsSpan(length - 2, 2));
-        
+        if (computedCrc != receivedCrc)
+            return AshReadResult.Fail(AshReadError.InvalidCrc);
+
         switch (ctrl.Type)
         {
             case AshFrameType.Data:
@@ -63,22 +65,6 @@ public class AshReader
 
         if (ctrl.Type == AshFrameType.Data)
             AshRandom.Xor(data);
-
-        if (computedCrc != receivedCrc)
-        {
-            if (Verbose)
-            {
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine("In " + DateTime.Now.ToString("O"));
-                Console.WriteLine($"Ctrl: {ctrl}");
-                Console.WriteLine($"Data: {BitConverter.ToString(data).Replace("-", " ")}");
-                // Console.WriteLine($"Buffer: {BitConverter.ToString(buffer.AsSpan(0, length).ToArray()).Replace("-", " ")}");
-                // Console.WriteLine($"Crc: {receivedCrc.ToString("X").Replace("-", " ")}");
-                Console.WriteLine();
-            }
-
-            return AshReadResult.Fail(AshReadError.InvalidCrc);
-        }
 
         if (Verbose)
         {
@@ -150,7 +136,7 @@ public class AshReader
         return index;
     }
 
-    public async Task<int> ReadByteAsync(CancellationToken cancellationToken)
+    private async Task<int> ReadByteAsync(CancellationToken cancellationToken)
     {
         var array = new byte[1];
         var bytes = await stream.ReadAsync(array, 0, 1, cancellationToken);
